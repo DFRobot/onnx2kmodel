@@ -1,0 +1,28 @@
+[compile_options]
+target = "k230"  # "cpu"
+dump_ir = false
+dump_asm = false
+dump_dir = "./dump"
+input_file = ""
+preprocess = true
+input_type = "uint8"  # "uint8", "float32"
+input_shape = [1, 3, 320, 320]
+input_range = [0, 1]
+input_layout = "NCHW"  # "NHWC"
+swapRB = false
+mean = [0.485, 0.456, 0.406]
+std = [0.229, 0.224, 0.225]
+letterbox_value = 0
+output_layout = "NCHW"  # "NHWC"
+
+[ptq_options]
+calibrate_method = "NoClip"  # "Kld", "NoClip"
+finetune_weights_method = "NoFineTuneWeights"
+quant_type = "uint8"  # "float32", "int8", "int16"
+w_quant_type = "uint8"  # "float32", "int8", "int16"
+dump_quant_error = false
+dump_quant_error_symmetric_for_signed = false
+quant_scheme = ""
+quant_scheme_strict_mode = false
+export_quant_scheme = false
+export_weight_range_by_channel = false

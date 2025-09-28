@@ -1,0 +1,16 @@
+[comm]
+icon_file = "F:/K230/onnx2kmodel/icon.png"
+app_name_EN = "Cell\\nRecognition"
+app_name_zh_CN = "细胞识别"
+app_name_zh_TW = "細胞識別"
+title_name_EN = "Cell Recognition"
+title_name_zh_CN = "细胞识别"
+title_name_zh_TW = "細胞識別"
+det_threshold = 0.6
+
+[mindplus_options]
+dataset_zip = ""
+model_zip = ""
+
+[user_options]
+dateset_dir = ""
