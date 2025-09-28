@@ -1,4 +1,5 @@
 [comm]
+mode = "MindPlus"
 icon_file = "F:/K230/onnx2kmodel/icon.png"
 app_name_EN = "Cell\\nRecognition"
 app_name_zh_CN = "细胞识别"

@@ -84,23 +84,63 @@ class ModelExportApp(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        layout = QGridLayout()
+        self.layout = QGridLayout()
+
+        # 标签
+        self.layout.addWidget(QLabel("选择模式"), 0, 0)
+
+        # 下拉框
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["MindPlus", "自定义"])  # 添加选项
+        if self._conf["comm"]["mode"] == "MindPlus":
+            self.mode_combo.setCurrentIndex(0)
+        else:
+            self.mode_combo.setCurrentIndex(1)
+        self.mode_combo.currentIndexChanged.connect(self.mode_changed)
+        self.layout.addWidget(self.mode_combo, 1, 0)
 
         # 模型包选择
         self.zip_model_button = QPushButton("选择模型包 (*.zip)")
         self.zip_model_button.clicked.connect(self.select_zip)
         self.zip_model_label = QLineEdit()
         self.zip_model_label.setReadOnly(True)
-        layout.addWidget(self.zip_model_button, 0, 0)
-        layout.addWidget(self.zip_model_label, 0, 1)
+        self.layout.addWidget(self.zip_model_button, 0, 1)
+        self.layout.addWidget(self.zip_model_label, 0, 2)
+        if self._conf["comm"]["mode"] == "MindPlus":
+            self.zip_model_button.show()
+            self.zip_model_label.show()
+        else:
+            self.zip_model_button.hide()
+            self.zip_model_label.hide()
 
         # 数据包选择
-        self.zip_dataset_button = QPushButton("选择模型包 (*.zip)")
+        self.zip_dataset_button = QPushButton("选择数据集包 (*.zip)")
         self.zip_dataset_button.clicked.connect(self.select_zip)
         self.zip_dataset_label = QLineEdit()
         self.zip_dataset_label.setReadOnly(True)
-        layout.addWidget(self.zip_dataset_button, 1, 0)
-        layout.addWidget(self.zip_dataset_label, 1, 1)
+        self.layout.addWidget(self.zip_dataset_button, 1, 1)
+        self.layout.addWidget(self.zip_dataset_label, 1, 2)
+        if self._conf["comm"]["mode"] == "MindPlus":
+            self.zip_dataset_button.show()
+            self.zip_dataset_label.show()
+        else:
+            self.zip_dataset_button.hide()
+            self.zip_dataset_label.hide()
+
+        # 自定义数据结构
+        self.user_dir_button = QPushButton("用户自定义目录")
+        self.user_dir_button.clicked.connect(self.select_zip)
+        self.user_dir_label = QLineEdit()
+        self.user_dir_label.setReadOnly(True)
+        self.layout.addWidget(self.user_dir_button, 0, 1)
+        self.layout.addWidget(self.user_dir_label, 0, 2)
+        if self._conf["comm"]["mode"] != "MindPlus":
+            self.user_dir_button.show()
+            self.user_dir_label.show()
+        else:
+            self.user_dir_button.hide()
+            self.user_dir_label.hide()
+
 
         # 图标选择
         self.icon_button = QPushButton("选择图标")
@@ -110,57 +150,57 @@ class ModelExportApp(QWidget):
             pixmap = QPixmap(self.icon_file)
             pixmap = pixmap.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.icon_preview.setPixmap(pixmap)
-        layout.addWidget(self.icon_button, 2, 0)
-        layout.addWidget(self.icon_preview, 2, 1)
+        self.layout.addWidget(self.icon_button, 2, 0)
+        self.layout.addWidget(self.icon_preview, 2, 1)
 
         # 模型选择
-        layout.addWidget(QLabel("选择模型"), 3, 0)
+        self.layout.addWidget(QLabel("选择模型"), 3, 0)
         self.model_combo = QComboBox()
         self.model_combo.addItems(["yolov8n"])
-        layout.addWidget(self.model_combo, 3, 1)
+        self.layout.addWidget(self.model_combo, 3, 1)
 
         # 分割线：应用名称
         line_app = QFrame()
         line_app.setFrameShape(QFrame.HLine)
         line_app.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(QLabel("应用名称设置"), 4, 0, 1, 2)
-        layout.addWidget(line_app, 5, 0, 1, 2)
+        self.layout.addWidget(QLabel("应用名称设置"), 4, 0, 1, 2)
+        self.layout.addWidget(line_app, 5, 0, 1, 2)
 
         # 应用名称输入
-        layout.addWidget(QLabel("简体中文(必填)"), 6, 0)
+        self.layout.addWidget(QLabel("简体中文(必填)"), 6, 0)
         self.app_zh = QLineEdit(self._conf["comm"]["app_name_zh_CN"])
-        layout.addWidget(self.app_zh, 6, 1)
+        self.layout.addWidget(self.app_zh, 6, 1)
 
-        layout.addWidget(QLabel("繁体中文(必填)"), 7, 0)
+        self.layout.addWidget(QLabel("繁体中文(必填)"), 7, 0)
         self.app_tw = QLineEdit(self._conf["comm"]["app_name_zh_TW"])
-        layout.addWidget(self.app_tw, 7, 1)
+        self.layout.addWidget(self.app_tw, 7, 1)
 
-        layout.addWidget(QLabel("English(必填)"), 8, 0)
+        self.layout.addWidget(QLabel("English(必填)"), 8, 0)
         self.app_en = QLineEdit(self._conf["comm"]["app_name_EN"])
-        layout.addWidget(self.app_en, 8, 1)
+        self.layout.addWidget(self.app_en, 8, 1)
 
         # 分割线：标题
         line_title = QFrame()
         line_title.setFrameShape(QFrame.HLine)
         line_title.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(QLabel("标题设置"), 9, 0, 1, 2)
-        layout.addWidget(line_title, 10, 0, 1, 2)
+        self.layout.addWidget(QLabel("标题设置"), 9, 0, 1, 2)
+        self.layout.addWidget(line_title, 10, 0, 1, 2)
 
         # 标题输入
-        layout.addWidget(QLabel("标题简体中文"), 11, 0)
+        self.layout.addWidget(QLabel("标题简体中文"), 11, 0)
         self.title_zh = QLineEdit("细胞识别")
-        layout.addWidget(self.title_zh, 11, 1)
+        self.layout.addWidget(self.title_zh, 11, 1)
 
-        layout.addWidget(QLabel("标题繁体中文"), 12, 0)
+        self.layout.addWidget(QLabel("标题繁体中文"), 12, 0)
         self.title_tw = QLineEdit("細胞識別")
-        layout.addWidget(self.title_tw, 12, 1)
+        self.layout.addWidget(self.title_tw, 12, 1)
 
-        layout.addWidget(QLabel("标题English"), 13, 0)
+        self.layout.addWidget(QLabel("标题English"), 13, 0)
         self.title_en = QLineEdit("Cell Recognition")
-        layout.addWidget(self.title_en, 13, 1)
+        self.layout.addWidget(self.title_en, 13, 1)
 
         # 默认识别阈值 (滑条 + 数值)
-        layout.addWidget(QLabel("默认识别阈值(0-1)"), 14, 0)
+        self.layout.addWidget(QLabel("默认识别阈值(0-1)"), 14, 0)
         threshold_layout = QHBoxLayout()
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setRange(0, 100)
@@ -169,7 +209,7 @@ class ModelExportApp(QWidget):
         threshold_layout.addWidget(self.threshold_slider)
         self.threshold_label = QLabel("0.30")
         threshold_layout.addWidget(self.threshold_label)
-        layout.addLayout(threshold_layout, 14, 1)
+        self.layout.addLayout(threshold_layout, 14, 1)
 
         bottom_btn_layout = QHBoxLayout()
         bottom_btn_layout.addStretch(1)
@@ -186,9 +226,9 @@ class ModelExportApp(QWidget):
         bottom_btn_layout.addWidget(self.export_btn, 1)
 
         bottom_btn_layout.addStretch(1)
-        layout.addLayout(bottom_btn_layout, 15, 0, 1, 2)
+        self.layout.addLayout(bottom_btn_layout, 15, 0, 1, 2)
 
-        self.setLayout(layout)
+        self.setLayout(self.layout)
 
 
     def update_threshold_label(self, value):
@@ -225,6 +265,26 @@ class ModelExportApp(QWidget):
 
         with open("app_conf.toml", 'w', encoding='utf-8') as f:
             toml.dump(self._conf, f)
+
+    def mode_changed(self, index):
+        selected_mode = self.mode_combo.itemText(index)
+        print("当前模式:", selected_mode)
+        # 你可以根据模式做其他操作
+        if selected_mode == "MindPlus":
+            self.zip_model_button.show()
+            self.zip_model_label.show()
+            self.zip_dataset_button.show()
+            self.zip_dataset_label.show()
+            self.user_dir_button.hide()
+            self.user_dir_label.hide()
+        else:
+            self.zip_model_button.hide()
+            self.zip_model_label.hide()
+            self.zip_dataset_button.hide()
+            self.zip_dataset_label.hide()
+            self.user_dir_button.show()
+            self.user_dir_label.show()
+        self.setLayout(self.layout)
 
     def export_model(self):
         if not self.zip_file:
