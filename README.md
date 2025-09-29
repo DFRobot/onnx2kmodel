@@ -37,7 +37,7 @@ pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 
 安装 dotnet7.0
 
-Ubuntu
+Ubuntu（测试版本22.04）
 
 ```shell
 sudo apt update
@@ -48,7 +48,7 @@ sudo apt install -y dotnet-sdk-7.0
 
 ```shell
 pip install  -r requirements.txt
-pip install  nncase-kpu
+pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 ```
 
 #### Mac
