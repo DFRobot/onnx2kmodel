@@ -48,7 +48,7 @@ sudo apt install -y dotnet-sdk-7.0
 
 ```shell
 pip install  -r requirements.txt
-pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+pip install  nncase-kpu
 ```
 
 #### Mac
