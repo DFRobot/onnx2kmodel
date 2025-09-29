@@ -79,9 +79,8 @@ class ModelExportApp(QWidget):
         with open("app_conf.toml", 'r', encoding='utf-8') as f:
             self._conf = toml.load(f)
             print(self._conf)
-        self.zip_file = None
-        self.icon_file = self._conf["comm"]["icon_file"]
         self.init_ui()
+
 
     def init_ui(self):
         self.layout = QGridLayout()
@@ -101,9 +100,10 @@ class ModelExportApp(QWidget):
 
         # 模型包选择
         self.zip_model_button = QPushButton("选择模型包 (*.zip)")
-        self.zip_model_button.clicked.connect(self.select_zip)
+        self.zip_model_button.clicked.connect(lambda: self.select_zip("model"))
         self.zip_model_label = QLineEdit()
         self.zip_model_label.setReadOnly(True)
+        self.zip_model_label.setText(self._conf["mindplus_options"]["model_zip"])
         self.layout.addWidget(self.zip_model_button, 0, 1)
         self.layout.addWidget(self.zip_model_label, 0, 2)
         if self._conf["comm"]["mode"] == "MindPlus":
@@ -115,9 +115,10 @@ class ModelExportApp(QWidget):
 
         # 数据包选择
         self.zip_dataset_button = QPushButton("选择数据集包 (*.zip)")
-        self.zip_dataset_button.clicked.connect(self.select_zip)
+        self.zip_dataset_button.clicked.connect(lambda: self.select_zip("dataset"))
         self.zip_dataset_label = QLineEdit()
         self.zip_dataset_label.setReadOnly(True)
+        self.zip_dataset_label.setText(self._conf["mindplus_options"]["dataset_zip"])
         self.layout.addWidget(self.zip_dataset_button, 1, 1)
         self.layout.addWidget(self.zip_dataset_label, 1, 2)
         if self._conf["comm"]["mode"] == "MindPlus":
@@ -129,9 +130,10 @@ class ModelExportApp(QWidget):
 
         # 自定义数据结构
         self.user_dir_button = QPushButton("用户自定义目录")
-        self.user_dir_button.clicked.connect(self.select_zip)
+        self.user_dir_button.clicked.connect(self.select_user_dir)
         self.user_dir_label = QLineEdit()
         self.user_dir_label.setReadOnly(True)
+        self.zip_dataset_label.setText(self._conf["user_options"]["dateset_dir"])
         self.layout.addWidget(self.user_dir_button, 0, 1)
         self.layout.addWidget(self.user_dir_label, 0, 2)
         if self._conf["comm"]["mode"] != "MindPlus":
@@ -146,8 +148,8 @@ class ModelExportApp(QWidget):
         self.icon_button = QPushButton("选择图标")
         self.icon_button.clicked.connect(self.select_icon)
         self.icon_preview = QLabel()
-        if self.icon_file and os.path.exists(self.icon_file):
-            pixmap = QPixmap(self.icon_file)
+        if self._conf["comm"]["icon_file"] and os.path.exists(self._conf["comm"]["icon_file"]):
+            pixmap = QPixmap(self._conf["comm"]["icon_file"])
             pixmap = pixmap.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.icon_preview.setPixmap(pixmap)
         self.layout.addWidget(self.icon_button, 2, 0)
@@ -236,16 +238,26 @@ class ModelExportApp(QWidget):
         f_value = value / 100.0
         self.threshold_label.setText(f"{f_value:.2f}")
 
-    def select_zip(self):
+    def select_zip(self,file_type):
         file, _ = QFileDialog.getOpenFileName(self, "选择ZIP文件", "", "ZIP files (*.zip)")
         if file:
-            self.zip_file = file
-            self.zip_label.setText(file)
+            if file_type == "model":
+                self._conf["mindplus_options"]["model_zip"] = file
+                self.zip_model_label.setText(file)
+            elif file_type == "dataset":
+                self._conf["mindplus_options"]["dataset_zip"] = file
+                self.zip_dataset_label.setText(file)
+
+    def select_user_dir(self):
+        directory = QFileDialog.getExistingDirectory(self, "选择用户自定义目录", "")
+        if directory:
+            self._conf["user_options"]["dateset_dir"] = directory
+            self.user_dir_label.setText(directory)
 
     def select_icon(self):
         file, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "PNG files (*.png)")
         if file:
-            self.icon_file = file
+            self._conf["comm"]["icon_file"] = file
             img = Image.open(file)
             img = img.resize((60, 60))
             os.makedirs("model_output", exist_ok=True)
@@ -254,7 +266,6 @@ class ModelExportApp(QWidget):
             self.icon_preview.setPixmap(pixmap)
 
     def save_conf(self):
-        self._conf["comm"]["icon_file"] = self.icon_file
         self._conf["comm"]["app_name_zh_CN"] = self.app_zh.text()
         self._conf["comm"]["app_name_EN"] = self.app_en.text()
         self._conf["comm"]["app_name_zh_TW"] = self.app_tw.text()
