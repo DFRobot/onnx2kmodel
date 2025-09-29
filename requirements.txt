@@ -1,5 +1,5 @@
 nncase>=2.10.0
-numpy>=2.3.3
+numpy>=2.2.6
 opencv_contrib_python>=4.11.0.86
 opencv_python>=4.11.0.86
 Pillow>=11.3.0
