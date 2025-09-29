@@ -26,7 +26,7 @@ git clone https://github.com/DFRobot/onnx2kmodel
 
 手动下载nncase-kpu依赖包
 
-http://downloadcd.dfrobot.com.cn/HUSKYLENS/nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+https://downloadcd.dfrobot.com.cn/HUSKYLENS/nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 
 
 
