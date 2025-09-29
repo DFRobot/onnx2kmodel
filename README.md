@@ -1,6 +1,7 @@
 # ONNX 转 二哈2安装包 GUI工具
 
 将onnx模型量化为kmodel模型，再将其打包为二哈2的zip安装包
+
 支持python 3.10 及以上环境
 
 
