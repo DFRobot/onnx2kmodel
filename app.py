@@ -178,9 +178,14 @@ class ModelExportApp(QWidget):
         self.icon_button.clicked.connect(self.select_icon)
         self.icon_preview = QLabel()
         if self._conf["comm"]["icon_file"] and os.path.exists(self._conf["comm"]["icon_file"]):
-            pixmap = QPixmap(self._conf["comm"]["icon_file"]).scaled(
-                60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
+            img = Image.open(self._conf["comm"]["icon_file"])
+            if img.size != (60, 60):
+                base, ext = os.path.splitext(self._conf["comm"]["icon_file"])
+                new_file = f"{base}_60_60.png"
+                img = img.resize((60, 60))
+                img.save(new_file)
+                self._conf["comm"]["icon_file"] = new_file
+            pixmap = QPixmap(self._conf["comm"]["icon_file"])
             self.icon_preview.setPixmap(pixmap)
         icon_layout.addWidget(self.icon_button)
         icon_layout.addWidget(self.icon_preview)
@@ -293,10 +298,15 @@ class ModelExportApp(QWidget):
     def select_icon(self):
         file, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "PNG files (*.png)")
         if file:
-            self._conf["comm"]["icon_file"] = file
             img = Image.open(file)
-            img = img.resize((60, 60))
-            os.makedirs("model_output", exist_ok=True)
+            if img.size != (60, 60):
+                base, ext = os.path.splitext(file)
+                new_file = f"{base}_60_60.png"
+                img = img.resize((60, 60))
+                img.save(new_file)
+                file = new_file
+
+            self._conf["comm"]["icon_file"] = file
             img.save("model_output/icon.png")
             pixmap = QPixmap("model_output/icon.png")
             self.icon_preview.setPixmap(pixmap)
