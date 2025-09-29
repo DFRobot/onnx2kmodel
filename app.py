@@ -366,7 +366,8 @@ class ModelExportApp(QWidget):
             if not dataset_zip or not os.path.exists(dataset_zip):
                 print(f"数据集包不存在: {dataset_zip}")
                 return
-            extract_zip_without_top(dataset_zip, "model_input")
+            #extract_zip_without_top(dataset_zip, "model_input")
+            extract_zip(dataset_zip, "model_input")
             self.model_dataset_dir = "model_input"
         else:
             self.model_dataset_dir = self._conf["user_options"]["user_dir"]
