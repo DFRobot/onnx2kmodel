@@ -22,11 +22,11 @@ git clone https://github.com/DFRobot/onnx2kmodel
 
 #### windows
 
-手动下载 nncase-kpu 安装包
+下载并安装dotnet7.0
 
-https://downloadcd.dfrobot.com.cn/HUSKYLENS/nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+https://downloadcd.dfrobot.com.cn/HUSKYLENS/dotnet-sdk-7.0.410-win-x64.exe
 
-
+确保电脑安装了Python3.10或以上版本，命令行运行
 
 ```shell
 pip install  -r requirements.txt
@@ -35,9 +35,26 @@ pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 
 #### Linux
 
+安装 dotnet7.0
+
+Ubuntu
+
+```shell
+sudo apt update
+sudo apt install -y dotnet-sdk-7.0
+```
+
+安装依赖包
+
 ```shell
 pip install  -r requirements.txt
 pip install  nncase-kpu
+```
+
+#### Mac
+
+```
+暂未测试
 ```
 
 
