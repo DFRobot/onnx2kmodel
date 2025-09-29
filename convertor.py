@@ -10,8 +10,6 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-
-dataset = 'model_input/dataset/images/train/'
 swapRB = False
 preprocess = False
 
@@ -117,7 +115,7 @@ def padding(img):
 def process_img(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = padding(img)
-    print(img.shape)
+    #print(img.shape)
     img = cv2.resize(img, (320, 320))
     img = np.transpose(img, (2, 0, 1))
     img = np.expand_dims(img, axis=0)
@@ -128,21 +126,21 @@ def gen(_dir):
     path = Path(_dir)
     files = [f.name for f in path.rglob('*') if f.is_file()]
     for f in files:
-        img_path = f'{dataset}{f}'
-        print(img_path)
+        img_path = os.path.join(_dir, f)
+        #print(img_path)
         templ = cv2.imread(img_path)
         templ = process_img(templ)
         yield templ
 
 
-def make(onnx_file, kmodel_file, toml_file):
+def make(onnx_file, kmodel_file, dataset, toml_file):
     calib = []
     for t in gen(dataset):
         calib.append(t)
 
     npcalib = np.array(calib).astype(np.uint8)
 
-    print("calib shape", npcalib.shape)
+    #print("calib shape", npcalib.shape)
 
     c = Convertor(onnx_file, kmodel_file, toml_file, [npcalib])
     c.convert()

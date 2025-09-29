@@ -9,14 +9,14 @@ import yaml
 import json
 import re
 import toml
-import convertor
 from PIL import Image
 from PyQt5.QtWidgets import (
-    QFrame, QApplication, QWidget, QPushButton, QLabel, QLineEdit, QTextEdit,
+    QFrame, QApplication, QWidget, QPushButton, QLabel, QLineEdit, QTextEdit,QSpacerItem,QSizePolicy,
     QFileDialog, QComboBox, QSlider, QHBoxLayout, QVBoxLayout, QGridLayout
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import QThread, pyqtSignal
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -41,6 +41,7 @@ desc_template = {
 }
 
 def clean_name(name):
+    name = name.replace("\\n", "\n")
     name = name.lower()
     name = re.sub(r'[^a-z0-9]', '_', name)
     name = re.sub(r'_+', '_', name)
@@ -52,6 +53,29 @@ def extract_zip(zip_path, output_dir="model_input"):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(output_dir)
     return output_dir
+
+def extract_zip_without_top(zip_path, output_dir="model_input"):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        for member in zip_ref.infolist():
+            # 跳过空的顶层目录
+            parts = member.filename.split('/')
+            if len(parts) > 1:
+                # 去掉顶层目录
+                target_path = os.path.join(output_dir, *parts[1:])
+            else:
+                target_path = os.path.join(output_dir, parts[0])
+
+            if member.is_dir():
+                os.makedirs(target_path, exist_ok=True)
+            else:
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                with zip_ref.open(member) as source, open(target_path, "wb") as target:
+                    target.write(source.read())
+
+    print("解压完成！")
 
 def zip_with_md5(source_dir="model_output/", zip_dir="./", base_name="app"):
     temp_zip_path = os.path.join(zip_dir, f"{base_name}.zip")
@@ -71,6 +95,25 @@ def zip_with_md5(source_dir="model_output/", zip_dir="./", base_name="app"):
     print(f"打包完成: {final_zip_path}")
     return final_zip_path
 
+class ConvertThread(QThread):
+    finished = pyqtSignal()  # 定义信号，执行完毕触发
+
+    def __init__(self, onnx_path, kmodel_path, dataset_path, conf_path, output_zip_file):
+        super().__init__()
+        self.onnx_path = onnx_path
+        self.kmodel_path = kmodel_path
+        self.dataset_path = dataset_path
+        self.conf_path = conf_path
+        self.output_zip_file = output_zip_file
+
+    def run(self):
+        import convertor
+        # 耗时操作放在这里
+        convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path)
+        zip_with_md5(base_name=self.output_zip_file)
+        self.finished.emit()  # 发射信号通知主线程
+
+
 class ModelExportApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -83,161 +126,154 @@ class ModelExportApp(QWidget):
 
 
     def init_ui(self):
-        self.layout = QGridLayout()
+        self.main_layout = QVBoxLayout()
 
-        # 标签
-        self.layout.addWidget(QLabel("选择模式"), 0, 0)
-
-        # 下拉框
+        # --- 第一行：模式选择 ---
+        mode_layout = QHBoxLayout()
+        mode_layout.addWidget(QLabel("选择模式"))
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["MindPlus", "自定义"])  # 添加选项
+        self.mode_combo.addItems(["MindPlus", "自定义"])
         if self._conf["comm"]["mode"] == "MindPlus":
             self.mode_combo.setCurrentIndex(0)
         else:
             self.mode_combo.setCurrentIndex(1)
         self.mode_combo.currentIndexChanged.connect(self.mode_changed)
-        self.layout.addWidget(self.mode_combo, 1, 0)
-
-        # 模型包选择
+        mode_layout.addWidget(self.mode_combo)
+        self.main_layout.addLayout(mode_layout)
+        self.add_separator("数据")
+        # --- 第二行：模型包选择 ---
+        model_layout = QHBoxLayout()
         self.zip_model_button = QPushButton("选择模型包 (*.zip)")
         self.zip_model_button.clicked.connect(lambda: self.select_zip("model"))
-        self.zip_model_label = QLineEdit()
+        self.zip_model_label = QLineEdit(self._conf["mindplus_options"]["model_zip"])
         self.zip_model_label.setReadOnly(True)
-        self.zip_model_label.setText(self._conf["mindplus_options"]["model_zip"])
-        self.layout.addWidget(self.zip_model_button, 0, 1)
-        self.layout.addWidget(self.zip_model_label, 0, 2)
-        if self._conf["comm"]["mode"] == "MindPlus":
-            self.zip_model_button.show()
-            self.zip_model_label.show()
-        else:
-            self.zip_model_button.hide()
-            self.zip_model_label.hide()
+        model_layout.addWidget(self.zip_model_button)
+        model_layout.addWidget(self.zip_model_label)
+        self.main_layout.addLayout(model_layout)
 
-        # 数据包选择
+        # --- 第三行：数据包选择 ---
+        dataset_layout = QHBoxLayout()
         self.zip_dataset_button = QPushButton("选择数据集包 (*.zip)")
         self.zip_dataset_button.clicked.connect(lambda: self.select_zip("dataset"))
-        self.zip_dataset_label = QLineEdit()
+        self.zip_dataset_label = QLineEdit(self._conf["mindplus_options"]["dataset_zip"])
         self.zip_dataset_label.setReadOnly(True)
-        self.zip_dataset_label.setText(self._conf["mindplus_options"]["dataset_zip"])
-        self.layout.addWidget(self.zip_dataset_button, 1, 1)
-        self.layout.addWidget(self.zip_dataset_label, 1, 2)
-        if self._conf["comm"]["mode"] == "MindPlus":
-            self.zip_dataset_button.show()
-            self.zip_dataset_label.show()
-        else:
-            self.zip_dataset_button.hide()
-            self.zip_dataset_label.hide()
+        dataset_layout.addWidget(self.zip_dataset_button)
+        dataset_layout.addWidget(self.zip_dataset_label)
+        self.main_layout.addLayout(dataset_layout)
 
-        # 自定义数据结构
+        # --- 自定义目录选择 ---
+        user_layout = QHBoxLayout()
         self.user_dir_button = QPushButton("用户自定义目录")
         self.user_dir_button.clicked.connect(self.select_user_dir)
-        self.user_dir_label = QLineEdit()
+        self.user_dir_label = QLineEdit(self._conf["user_options"]["user_dir"])
         self.user_dir_label.setReadOnly(True)
-        self.zip_dataset_label.setText(self._conf["user_options"]["dateset_dir"])
-        self.layout.addWidget(self.user_dir_button, 0, 1)
-        self.layout.addWidget(self.user_dir_label, 0, 2)
-        if self._conf["comm"]["mode"] != "MindPlus":
-            self.user_dir_button.show()
-            self.user_dir_label.show()
-        else:
-            self.user_dir_button.hide()
-            self.user_dir_label.hide()
+        user_layout.addWidget(self.user_dir_button)
+        user_layout.addWidget(self.user_dir_label)
+        self.main_layout.addLayout(user_layout)
 
-
-        # 图标选择
+        # --- 图标选择 ---
+        self.add_separator("图标")
+        icon_layout = QHBoxLayout()
         self.icon_button = QPushButton("选择图标")
         self.icon_button.clicked.connect(self.select_icon)
         self.icon_preview = QLabel()
         if self._conf["comm"]["icon_file"] and os.path.exists(self._conf["comm"]["icon_file"]):
-            pixmap = QPixmap(self._conf["comm"]["icon_file"])
-            pixmap = pixmap.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = QPixmap(self._conf["comm"]["icon_file"]).scaled(
+                60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
             self.icon_preview.setPixmap(pixmap)
-        self.layout.addWidget(self.icon_button, 2, 0)
-        self.layout.addWidget(self.icon_preview, 2, 1)
+        icon_layout.addWidget(self.icon_button)
+        icon_layout.addWidget(self.icon_preview)
+        self.main_layout.addLayout(icon_layout)
 
-        # 模型选择
-        self.layout.addWidget(QLabel("选择模型"), 3, 0)
-        self.model_combo = QComboBox()
-        self.model_combo.addItems(["yolov8n"])
-        self.layout.addWidget(self.model_combo, 3, 1)
-
-        # 分割线：应用名称
-        line_app = QFrame()
-        line_app.setFrameShape(QFrame.HLine)
-        line_app.setFrameShadow(QFrame.Sunken)
-        self.layout.addWidget(QLabel("应用名称设置"), 4, 0, 1, 2)
-        self.layout.addWidget(line_app, 5, 0, 1, 2)
-
-        # 应用名称输入
-        self.layout.addWidget(QLabel("简体中文(必填)"), 6, 0)
+        # --- 应用名称 ---
+        self.add_separator("应用名称")
         self.app_zh = QLineEdit(self._conf["comm"]["app_name_zh_CN"])
-        self.layout.addWidget(self.app_zh, 6, 1)
-
-        self.layout.addWidget(QLabel("繁体中文(必填)"), 7, 0)
         self.app_tw = QLineEdit(self._conf["comm"]["app_name_zh_TW"])
-        self.layout.addWidget(self.app_tw, 7, 1)
-
-        self.layout.addWidget(QLabel("English(必填)"), 8, 0)
         self.app_en = QLineEdit(self._conf["comm"]["app_name_EN"])
-        self.layout.addWidget(self.app_en, 8, 1)
+        self.main_layout.addWidget(QLabel("简体中文"))
+        self.main_layout.addWidget(self.app_zh)
+        self.main_layout.addWidget(QLabel("繁体中文"))
+        self.main_layout.addWidget(self.app_tw)
+        self.main_layout.addWidget(QLabel("English"))
+        self.main_layout.addWidget(self.app_en)
 
-        # 分割线：标题
-        line_title = QFrame()
-        line_title.setFrameShape(QFrame.HLine)
-        line_title.setFrameShadow(QFrame.Sunken)
-        self.layout.addWidget(QLabel("标题设置"), 9, 0, 1, 2)
-        self.layout.addWidget(line_title, 10, 0, 1, 2)
+        self.add_separator("标题设置")
+        self.title_zh = QLineEdit(self._conf["comm"]["title_name_zh_CN"])
+        self.title_tw = QLineEdit(self._conf["comm"]["title_name_zh_TW"])
+        self.title_en = QLineEdit(self._conf["comm"]["title_name_EN"])
+        self.main_layout.addWidget(QLabel("标题简体中文"))
+        self.main_layout.addWidget(self.title_zh)        
+        self.main_layout.addWidget(QLabel("标题繁体中文"))
+        self.main_layout.addWidget(self.title_tw)
+        self.main_layout.addWidget(QLabel("标题English"))
+        self.main_layout.addWidget(self.title_en)
 
-        # 标题输入
-        self.layout.addWidget(QLabel("标题简体中文"), 11, 0)
-        self.title_zh = QLineEdit("细胞识别")
-        self.layout.addWidget(self.title_zh, 11, 1)
-
-        self.layout.addWidget(QLabel("标题繁体中文"), 12, 0)
-        self.title_tw = QLineEdit("細胞識別")
-        self.layout.addWidget(self.title_tw, 12, 1)
-
-        self.layout.addWidget(QLabel("标题English"), 13, 0)
-        self.title_en = QLineEdit("Cell Recognition")
-        self.layout.addWidget(self.title_en, 13, 1)
-
-        # 默认识别阈值 (滑条 + 数值)
-        self.layout.addWidget(QLabel("默认识别阈值(0-1)"), 14, 0)
+        # --- 阈值设置 ---
+        self.add_separator("识别阈值")
         threshold_layout = QHBoxLayout()
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setRange(0, 100)
         self.threshold_slider.setValue(30)
         self.threshold_slider.valueChanged.connect(self.update_threshold_label)
-        threshold_layout.addWidget(self.threshold_slider)
         self.threshold_label = QLabel("0.30")
+        #threshold_layout.addWidget(QLabel("默认识别阈值"))
+        threshold_layout.addWidget(self.threshold_slider)
         threshold_layout.addWidget(self.threshold_label)
-        self.layout.addLayout(threshold_layout, 14, 1)
+        self.main_layout.addLayout(threshold_layout)
 
-        bottom_btn_layout = QHBoxLayout()
-        bottom_btn_layout.addStretch(1)
-        # 保存配置
+        # --- 底部按钮 ---
+        btn_layout = QHBoxLayout()
         self.save_btn = QPushButton("保存配置")
         self.save_btn.clicked.connect(self.save_conf)
-        bottom_btn_layout.addWidget(self.save_btn, 1)
-
-        bottom_btn_layout.addStretch(1)
-        
-        # 转换按钮
-        self.export_btn = QPushButton("转换")
+        self.export_btn = QPushButton("转换&&打包")
         self.export_btn.clicked.connect(self.export_model)
-        bottom_btn_layout.addWidget(self.export_btn, 1)
+        self.pack_btn = QPushButton("仅打包")
+        self.pack_btn.clicked.connect(self.pack)
+        btn_layout.addStretch(1)
+        btn_layout.addWidget(self.save_btn)
+        btn_layout.addWidget(self.export_btn)
+        btn_layout.addWidget(self.pack_btn)
+        btn_layout.addStretch(1)
+        self.main_layout.addLayout(btn_layout)
 
-        bottom_btn_layout.addStretch(1)
-        self.layout.addLayout(bottom_btn_layout, 15, 0, 1, 2)
+        # 设置主布局
+        self.setLayout(self.main_layout)
 
-        self.setLayout(self.layout)
+        # 初始化控件显隐
+        self.mode_changed(self.mode_combo.currentIndex())
 
+    def add_separator(self, title=""):
+        spacer = QSpacerItem(0, 30, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.main_layout.addItem(spacer)
+
+        line_layout = QHBoxLayout()    
+
+        line_left = QFrame()
+        line_left.setFrameShape(QFrame.HLine)
+        line_left.setFrameShadow(QFrame.Sunken)    
+
+        label = QLabel(title)
+        label.setAlignment(Qt.AlignCenter)    
+
+        font = label.font()
+        font.setBold(True)
+        label.setFont(font)
+
+        line_right = QFrame()
+        line_right.setFrameShape(QFrame.HLine)
+        line_right.setFrameShadow(QFrame.Sunken)    
+
+        line_layout.addWidget(line_left)
+        line_layout.addWidget(label)
+        line_layout.addWidget(line_right)    
+
+        self.main_layout.addLayout(line_layout)
 
     def update_threshold_label(self, value):
         # 转换为 0.00 ~ 1.00
         f_value = value / 100.0
         self.threshold_label.setText(f"{f_value:.2f}")
-
     def select_zip(self,file_type):
         file, _ = QFileDialog.getOpenFileName(self, "选择ZIP文件", "", "ZIP files (*.zip)")
         if file:
@@ -251,7 +287,7 @@ class ModelExportApp(QWidget):
     def select_user_dir(self):
         directory = QFileDialog.getExistingDirectory(self, "选择用户自定义目录", "")
         if directory:
-            self._conf["user_options"]["dateset_dir"] = directory
+            self._conf["user_options"]["user_dir"] = directory
             self.user_dir_label.setText(directory)
 
     def select_icon(self):
@@ -282,6 +318,7 @@ class ModelExportApp(QWidget):
         print("当前模式:", selected_mode)
         # 你可以根据模式做其他操作
         if selected_mode == "MindPlus":
+            self._conf["comm"]["mode"]  = "MindPlus"
             self.zip_model_button.show()
             self.zip_model_label.show()
             self.zip_dataset_button.show()
@@ -289,22 +326,44 @@ class ModelExportApp(QWidget):
             self.user_dir_button.hide()
             self.user_dir_label.hide()
         else:
+            print("self._conf[comm][mode]  = 'User'")
+            self._conf["comm"]["mode"]  = "User"
+            print(self._conf)
             self.zip_model_button.hide()
             self.zip_model_label.hide()
             self.zip_dataset_button.hide()
             self.zip_dataset_label.hide()
             self.user_dir_button.show()
             self.user_dir_label.show()
-        self.setLayout(self.layout)
+        self.setLayout(self.main_layout)
 
     def export_model(self):
-        if not self.zip_file:
-            print("请选择ZIP文件")
-            return
-        # 解压
-        self.export_btn.setText("转换中......")
-        extract_zip(self.zip_file, "model_input")
-        yaml_path = os.path.join("model_input", "dataset", "data.yaml")
+        print(self._conf)
+        if self._conf["comm"]["mode"] == "MindPlus":
+            #制作MindPlus数据目录
+            if os.path.exists("model_input"):
+                shutil.rmtree("model_input")
+            os.makedirs("model_input", exist_ok=True)
+            model_zip = self._conf["mindplus_options"]["model_zip"] 
+            if not model_zip or not os.path.exists(model_zip):
+                print(f"模型包不存在: {model_zip}")
+                return
+            extract_zip(model_zip, "model_input")
+            dataset_zip = self._conf["mindplus_options"]["dataset_zip"] 
+            if not dataset_zip or not os.path.exists(dataset_zip):
+                print(f"数据集包不存在: {dataset_zip}")
+                return
+            extract_zip_without_top(dataset_zip, "model_input")
+            self.model_dataset_dir = "model_input"
+        else:
+            self.model_dataset_dir = self._conf["user_options"]["user_dir"]
+
+
+        self.export_btn.setText("转换中......, 需要几分钟，请耐心等待")
+        self.export_btn.repaint()   # 强制刷新按钮
+        QApplication.processEvents()  # 处理事件队列，刷新界面
+        #读取数据集标签
+        yaml_path = os.path.join(self.model_dataset_dir, "data.yaml")
         with open(yaml_path, "r", encoding="utf-8") as f:
             source_config = yaml.safe_load(f)
         names = source_config.get("names", {})
@@ -332,14 +391,31 @@ class ModelExportApp(QWidget):
         with open("model_output/desc.json", "w", encoding="utf-8") as f:
             json.dump(desc_data, f, ensure_ascii=False, indent=4)
 
+        icon_file = self._conf["comm"]["icon_file"]
+        if os.path.exists(icon_file):
+            shutil.copy(icon_file, os.path.join("model_output", os.path.basename(icon_file)))
         # 创建空文件
         open(f"model_output/app.{conf_data['conf']['application']}", "w").close()
-        convertor.make("model_input/model/best.onnx","model_output/"+conf_data["conf"]["model_info"][0]["filename"],"kmodel_conf.toml")
-        # 打包 ZIP
-        zip_with_md5(base_name=conf_data["conf"]["application"])
-        self.export_btn.setText("转换")
-        print("转换完成！")
+        dataset_path = os.path.join(self.model_dataset_dir, "images","train")
+        onnx_path = os.path.join(self.model_dataset_dir, "best.onnx")
+        kmodel_path = os.path.join("model_output", conf_data["conf"]["model_info"][0]["filename"])
+        output_zip = conf_data["conf"]["application"]
 
+        self.thread = ConvertThread(onnx_path, kmodel_path, dataset_path, "kmodel_conf.toml", output_zip)
+        self.thread.finished.connect(self.on_conversion_finished)
+        self.thread.start()
+        print("正在转换")
+
+    def on_conversion_finished(self):
+        self.export_btn.setText("转换&&打包")
+        print("转换完成！")        
+
+    def pack(self):
+        # 打包 ZIP
+        conf_data = conf_template
+        conf_data["conf"]["application"] = "dfrobot_" + clean_name(self.app_en.text())
+        zip_with_md5(base_name=conf_data["conf"]["application"])
+        print("转换完成！")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
