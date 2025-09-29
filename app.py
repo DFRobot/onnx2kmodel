@@ -219,9 +219,9 @@ class ModelExportApp(QWidget):
         threshold_layout = QHBoxLayout()
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setRange(0, 100)
-        self.threshold_slider.setValue(30)
+        self.threshold_slider.setValue(int(self._conf["comm"]["det_threshold"]*100))
         self.threshold_slider.valueChanged.connect(self.update_threshold_label)
-        self.threshold_label = QLabel("0.30")
+        self.threshold_label = QLabel(str(self._conf["comm"]["det_threshold"]))
         #threshold_layout.addWidget(QLabel("默认识别阈值"))
         threshold_layout.addWidget(self.threshold_slider)
         threshold_layout.addWidget(self.threshold_label)
@@ -278,7 +278,9 @@ class ModelExportApp(QWidget):
     def update_threshold_label(self, value):
         # 转换为 0.00 ~ 1.00
         f_value = value / 100.0
+        self._conf["comm"]["det_threshold"] = float("{:.2f}".format(f_value))
         self.threshold_label.setText(f"{f_value:.2f}")
+
     def select_zip(self,file_type):
         file, _ = QFileDialog.getOpenFileName(self, "选择ZIP文件", "", "ZIP files (*.zip)")
         if file:
@@ -307,8 +309,9 @@ class ModelExportApp(QWidget):
                 file = new_file
 
             self._conf["comm"]["icon_file"] = file
-            img.save("model_output/icon.png")
-            pixmap = QPixmap("model_output/icon.png")
+            if os.path.exists("model_output"):
+                img.save("model_output/icon.png")
+            pixmap = QPixmap(file)
             self.icon_preview.setPixmap(pixmap)
 
     def save_conf(self):
