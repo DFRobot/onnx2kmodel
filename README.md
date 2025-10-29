@@ -48,7 +48,7 @@ sudo apt install -y dotnet-sdk-7.0
 
 ```shell
 pip install  -r requirements.txt
-pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+pip install  nncase-kpu
 ```
 
 #### Mac
@@ -180,5 +180,5 @@ python app.py
 
 ## 遗留问题
 
-* 点击转化时，GUI线程会卡住，转换完成后才可继续操作
+* 点击转换时，GUI线程会卡住，转换完成后才可继续操作
 * 不支持多语言标签
