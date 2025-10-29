@@ -481,10 +481,10 @@ class ModelExportApp(QWidget):
 
         desc_data = desc_template
         desc_data["desc"]["application_name"] = [
-            self.app_en.text(), self.app_zh.text(), self.app_tw.text()
+            self.app_en.text().replace("\\n", "\n"), self.app_zh.text().replace("\\n", "\n"), self.app_tw.text().replace("\\n", "\n")
         ]
         desc_data["desc"]["application_title"] = [
-            self.title_en.text(), self.title_zh.text(), self.title_tw.text()
+            self.title_en.text().replace("\\n", "\n"), self.title_zh.text().replace("\\n", "\n"), self.title_tw.text().replace("\\n", "\n")
         ]
         with open("model_output/desc.json", "w", encoding="utf-8") as f:
             json.dump(desc_data, f, ensure_ascii=False, indent=4)
@@ -506,7 +506,7 @@ class ModelExportApp(QWidget):
 
     def on_conversion_finished(self):
         self.export_btn.setText(lang["convert_and_package"][lang_id])
-        print("转换完成！")        
+        print("转换完成！")
 
     def pack(self):
         # 打包 ZIP
