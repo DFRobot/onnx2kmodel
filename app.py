@@ -9,16 +9,45 @@ import yaml
 import json
 import re
 import toml
+import locale
 from PIL import Image
 from PyQt5.QtWidgets import (
     QFrame, QApplication, QWidget, QPushButton, QLabel, QLineEdit, QTextEdit,QSpacerItem,QSizePolicy,
-    QFileDialog, QComboBox, QSlider, QHBoxLayout, QVBoxLayout, QGridLayout
+    QFileDialog, QComboBox, QSlider, QHBoxLayout, QVBoxLayout, QGridLayout,
+    QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QThread, pyqtSignal
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+lang_id = 0
+lang = {
+    "name": ["name","名字"],
+    "data": ["Model ","数据包"],
+    "icon": ["icon","图标"],
+    "custom": ["Custom", "自定义"],
+    "select_mode": ["Select Mode","选择模式"],
+    "custom_directory": ["Custom Directory","用户自定义目录"],
+    "select_model_package": ["Select Model Package","选择模型包"],
+    "select_dataset_package": ["Select Dataset Package","选择数据集包"],
+    "select_icon": ["Select Icon","选择图标"],
+    "app_name": ["App Name","应用名称"],
+    "simplified_chinese": ["Simplified Chinese","简体中文"],
+    "traditional_chinese": ["Traditional Chinese","繁体中文"],
+    "title_settings": ["Title Settings","标题设置"],
+    "detection_threshold": ["Detection Threshold","识别阈值"],
+    "save_config": ["Save Config","保存配置"],
+    "convert_and_package": ["Convert and Package","转换&打包"],
+    "pack_only": ["Pack Only","仅打包"],
+    "app_title": ["Mindplus Model to K230 Installer","Mindplus模型转二哈安装包"],
+    "select_custom_directory": ["Select Custom Directory","选择用户自定义目录"],
+    "select_zip_file": ["Select ZIP File","选择ZIP文件"],
+    "app_name_cannot_be_empty": ["App Name cannot be empty","应用名称不能为空"],
+    "title_name_cannot_be_empty": ["Title Name cannot be empty","标题名称不能为空"],
+    "converting_please_wait": ["Converting, please wait...","转换中......, 需要几分钟，请耐心等待"],
+}
 
 conf_template = {
     "conf": {
@@ -117,11 +146,12 @@ class ConvertThread(QThread):
 class ModelExportApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Mindplus模型转二哈安装包")
+        self.setWindowTitle(lang["app_title"][lang_id])
         self.resize(800, 600)
         with open("app_conf.toml", 'r', encoding='utf-8') as f:
             self._conf = toml.load(f)
             print(self._conf)
+        self.separator = {}
         self.init_ui()
 
 
@@ -129,10 +159,21 @@ class ModelExportApp(QWidget):
         self.main_layout = QVBoxLayout()
 
         # --- 第一行：模式选择 ---
+        lang_layout = QHBoxLayout()
+        lang_layout.addWidget(QLabel("Language:"))
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItems(["English", "中文"])
+        self.lang_combo.setCurrentIndex(1)
+        self.lang_combo.currentIndexChanged.connect(self.lang_changed)
+        lang_layout.addWidget(self.lang_combo)
+        self.main_layout.addLayout(lang_layout)
+
+
         mode_layout = QHBoxLayout()
-        mode_layout.addWidget(QLabel("选择模式"))
+        self.select_mode_label = QLabel(lang["select_mode"][lang_id])
+        mode_layout.addWidget(self.select_mode_label)
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["MindPlus", "自定义"])
+        self.mode_combo.addItems(["MindPlus", lang["custom"][lang_id]])
         if self._conf["comm"]["mode"] == "MindPlus":
             self.mode_combo.setCurrentIndex(0)
         else:
@@ -140,10 +181,12 @@ class ModelExportApp(QWidget):
         self.mode_combo.currentIndexChanged.connect(self.mode_changed)
         mode_layout.addWidget(self.mode_combo)
         self.main_layout.addLayout(mode_layout)
-        self.add_separator("数据")
+
+
+        self.add_separator("select_mode")
         # --- 第二行：模型包选择 ---
         model_layout = QHBoxLayout()
-        self.zip_model_button = QPushButton("选择模型包 (*.zip)")
+        self.zip_model_button = QPushButton(lang["select_model_package"][lang_id] + " (*.zip)")
         self.zip_model_button.clicked.connect(lambda: self.select_zip("model"))
         self.zip_model_label = QLineEdit(self._conf["mindplus_options"]["model_zip"])
         self.zip_model_label.setReadOnly(True)
@@ -153,7 +196,7 @@ class ModelExportApp(QWidget):
 
         # --- 第三行：数据包选择 ---
         dataset_layout = QHBoxLayout()
-        self.zip_dataset_button = QPushButton("选择数据集包 (*.zip)")
+        self.zip_dataset_button = QPushButton(lang["select_dataset_package"][lang_id] + " (*.zip)")
         self.zip_dataset_button.clicked.connect(lambda: self.select_zip("dataset"))
         self.zip_dataset_label = QLineEdit(self._conf["mindplus_options"]["dataset_zip"])
         self.zip_dataset_label.setReadOnly(True)
@@ -163,7 +206,7 @@ class ModelExportApp(QWidget):
 
         # --- 自定义目录选择 ---
         user_layout = QHBoxLayout()
-        self.user_dir_button = QPushButton("用户自定义目录")
+        self.user_dir_button = QPushButton(lang["custom_directory"][lang_id])
         self.user_dir_button.clicked.connect(self.select_user_dir)
         self.user_dir_label = QLineEdit(self._conf["user_options"]["user_dir"])
         self.user_dir_label.setReadOnly(True)
@@ -172,9 +215,9 @@ class ModelExportApp(QWidget):
         self.main_layout.addLayout(user_layout)
 
         # --- 图标选择 ---
-        self.add_separator("图标")
+        self.add_separator("icon")
         icon_layout = QHBoxLayout()
-        self.icon_button = QPushButton("选择图标")
+        self.icon_button = QPushButton(lang["select_icon"][lang_id])
         self.icon_button.clicked.connect(self.select_icon)
         self.icon_preview = QLabel()
         if self._conf["comm"]["icon_file"] and os.path.exists(self._conf["comm"]["icon_file"]):
@@ -192,30 +235,35 @@ class ModelExportApp(QWidget):
         self.main_layout.addLayout(icon_layout)
 
         # --- 应用名称 ---
-        self.add_separator("应用名称")
+        self.add_separator("app_name")
         self.app_zh = QLineEdit(self._conf["comm"]["app_name_zh_CN"])
         self.app_tw = QLineEdit(self._conf["comm"]["app_name_zh_TW"])
         self.app_en = QLineEdit(self._conf["comm"]["app_name_EN"])
-        self.main_layout.addWidget(QLabel("简体中文"))
+        self.app_name_label_zh = QLabel(lang["simplified_chinese"][lang_id])
+        self.main_layout.addWidget(self.app_name_label_zh)
         self.main_layout.addWidget(self.app_zh)
-        self.main_layout.addWidget(QLabel("繁体中文"))
+        self.app_name_label_tw = QLabel(lang["traditional_chinese"][lang_id])
+        self.main_layout.addWidget(self.app_name_label_tw)
         self.main_layout.addWidget(self.app_tw)
-        self.main_layout.addWidget(QLabel("English"))
+        self.app_name_label_en = QLabel("English")
+        self.main_layout.addWidget(self.app_name_label_en)
         self.main_layout.addWidget(self.app_en)
 
-        self.add_separator("标题设置")
+        self.add_separator("title_settings")
         self.title_zh = QLineEdit(self._conf["comm"]["title_name_zh_CN"])
         self.title_tw = QLineEdit(self._conf["comm"]["title_name_zh_TW"])
         self.title_en = QLineEdit(self._conf["comm"]["title_name_EN"])
-        self.main_layout.addWidget(QLabel("标题简体中文"))
+        self.title_name_label_zh = QLabel(lang["simplified_chinese"][lang_id])
+        self.main_layout.addWidget(self.title_name_label_zh)
         self.main_layout.addWidget(self.title_zh)        
-        self.main_layout.addWidget(QLabel("标题繁体中文"))
+        self.title_name_label_tw = QLabel(lang["traditional_chinese"][lang_id])
+        self.main_layout.addWidget(self.title_name_label_tw)
         self.main_layout.addWidget(self.title_tw)
-        self.main_layout.addWidget(QLabel("标题English"))
+        self.main_layout.addWidget(QLabel("English"))
         self.main_layout.addWidget(self.title_en)
 
         # --- 阈值设置 ---
-        self.add_separator("识别阈值")
+        self.add_separator("detection_threshold")
         threshold_layout = QHBoxLayout()
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setRange(0, 100)
@@ -229,11 +277,11 @@ class ModelExportApp(QWidget):
 
         # --- 底部按钮 ---
         btn_layout = QHBoxLayout()
-        self.save_btn = QPushButton("保存配置")
+        self.save_btn = QPushButton(lang["save_config"][lang_id])
         self.save_btn.clicked.connect(self.save_conf)
-        self.export_btn = QPushButton("转换&&打包")
+        self.export_btn = QPushButton(lang["convert_and_package"][lang_id])
         self.export_btn.clicked.connect(self.export_model)
-        self.pack_btn = QPushButton("仅打包")
+        self.pack_btn = QPushButton(lang["pack_only"][lang_id])
         self.pack_btn.clicked.connect(self.pack)
         btn_layout.addStretch(1)
         btn_layout.addWidget(self.save_btn)
@@ -248,7 +296,8 @@ class ModelExportApp(QWidget):
         # 初始化控件显隐
         self.mode_changed(self.mode_combo.currentIndex())
 
-    def add_separator(self, title=""):
+    def add_separator(self, key=""):
+        title = lang[key][lang_id]
         spacer = QSpacerItem(0, 30, QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.main_layout.addItem(spacer)
 
@@ -257,20 +306,19 @@ class ModelExportApp(QWidget):
         line_left = QFrame()
         line_left.setFrameShape(QFrame.HLine)
         line_left.setFrameShadow(QFrame.Sunken)    
+        self.separator[key] = QLabel(title)
+        self.separator[key].setAlignment(Qt.AlignCenter)    
 
-        label = QLabel(title)
-        label.setAlignment(Qt.AlignCenter)    
-
-        font = label.font()
+        font = self.separator[key].font()
         font.setBold(True)
-        label.setFont(font)
+        self.separator[key].setFont(font)
 
         line_right = QFrame()
         line_right.setFrameShape(QFrame.HLine)
         line_right.setFrameShadow(QFrame.Sunken)    
 
         line_layout.addWidget(line_left)
-        line_layout.addWidget(label)
+        line_layout.addWidget(self.separator[key])
         line_layout.addWidget(line_right)    
 
         self.main_layout.addLayout(line_layout)
@@ -282,7 +330,7 @@ class ModelExportApp(QWidget):
         self.threshold_label.setText(f"{f_value:.2f}")
 
     def select_zip(self,file_type):
-        file, _ = QFileDialog.getOpenFileName(self, "选择ZIP文件", "", "ZIP files (*.zip)")
+        file, _ = QFileDialog.getOpenFileName(self, lang["select_zip_file"][lang_id], "", "ZIP files (*.zip)")
         if file:
             if file_type == "model":
                 self._conf["mindplus_options"]["model_zip"] = file
@@ -292,13 +340,13 @@ class ModelExportApp(QWidget):
                 self.zip_dataset_label.setText(file)
 
     def select_user_dir(self):
-        directory = QFileDialog.getExistingDirectory(self, "选择用户自定义目录", "")
+        directory = QFileDialog.getExistingDirectory(self, lang["select_custom_directory"][lang_id], "")
         if directory:
             self._conf["user_options"]["user_dir"] = directory
             self.user_dir_label.setText(directory)
 
     def select_icon(self):
-        file, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "PNG files (*.png)")
+        file, _ = QFileDialog.getOpenFileName(self, lang["select_icon"][lang_id], "", "PNG files (*.png)")
         if file:
             img = Image.open(file)
             if img.size != (60, 60):
@@ -325,6 +373,33 @@ class ModelExportApp(QWidget):
 
         with open("app_conf.toml", 'w', encoding='utf-8') as f:
             toml.dump(self._conf, f)
+
+    def lang_changed(self, index):
+        global lang_id
+        selected_lang = self.lang_combo.itemText(index)
+        print("当前语言:", selected_lang)
+        # 你可以根据模式做其他操作
+        lang_id = self.lang_combo.currentIndex()
+        # 更新按钮文本
+        self.setWindowTitle(lang["app_title"][lang_id])
+        self.save_btn.setText(lang["save_config"][lang_id])
+        self.export_btn.setText(lang["convert_and_package"][lang_id])
+        self.pack_btn.setText(lang["pack_only"][lang_id])
+        self.select_mode_label.setText(lang["select_mode"][lang_id])
+        self.user_dir_button.setText(lang["custom_directory"][lang_id])
+        self.icon_button.setText(lang["select_icon"][lang_id])
+        self.app_name_label_zh.setText(lang["simplified_chinese"][lang_id])
+        self.app_name_label_tw.setText(lang["traditional_chinese"][lang_id])
+        self.title_name_label_zh.setText(lang["simplified_chinese"][lang_id])
+        self.title_name_label_tw.setText(lang["traditional_chinese"][lang_id])
+        self.mode_combo.clear()
+        self.mode_combo.addItems(["MindPlus", lang["custom"][lang_id]])
+        self.zip_model_button.setText(lang["select_model_package"][lang_id])
+        self.zip_dataset_button.setText(lang["select_dataset_package"][lang_id])
+        
+        # 更新分隔符文本
+        for key in self.separator.keys():
+            self.separator[key].setText(lang[key][lang_id])
 
     def mode_changed(self, index):
         selected_mode = self.mode_combo.itemText(index)
@@ -371,9 +446,18 @@ class ModelExportApp(QWidget):
             self.model_dataset_dir = "model_input"
         else:
             self.model_dataset_dir = self._conf["user_options"]["user_dir"]
-
-
-        self.export_btn.setText("转换中......, 需要几分钟，请耐心等待")
+        if not self.app_zh.text() or not self.app_en.text() or not self.app_tw.text():
+            print(lang["app_name_cannot_be_empty"][lang_id])
+            #弹出对话框
+            QMessageBox.warning(self, "Warning", lang["app_name_cannot_be_empty"][lang_id])
+            return
+        if not self.title_zh.text() or not self.title_en.text() or not self.title_tw.text():
+            print(lang["title_name_cannot_be_empty"][lang_id])
+            #弹出对话框
+            QMessageBox.warning(self, "Warning", lang["title_name_cannot_be_empty"][lang_id])
+            return
+        
+        self.export_btn.setText(lang["converting_please_wait"][lang_id])
         self.export_btn.repaint()   # 强制刷新按钮
         QApplication.processEvents()  # 处理事件队列，刷新界面
         #读取数据集标签
@@ -421,7 +505,7 @@ class ModelExportApp(QWidget):
         print("正在转换")
 
     def on_conversion_finished(self):
-        self.export_btn.setText("转换&&打包")
+        self.export_btn.setText(lang["convert_and_package"][lang_id])
         print("转换完成！")        
 
     def pack(self):
@@ -432,6 +516,12 @@ class ModelExportApp(QWidget):
         print("转换完成！")
 
 if __name__ == "__main__":
+    language_code = locale.getdefaultlocale()[0]
+    print(f"默认语言环境: {language_code}")
+    if language_code.startswith("zh_CN"):
+        lang_id = 1
+    else:
+        lang_id = 0
     app = QApplication(sys.argv)
     window = ModelExportApp()
     window.show()
