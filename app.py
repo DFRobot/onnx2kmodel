@@ -349,6 +349,7 @@ class ModelExportApp(QWidget):
         file, _ = QFileDialog.getOpenFileName(self, lang["select_icon"][lang_id], "", "PNG files (*.png)")
         if file:
             img = Image.open(file)
+            img = img.convert('RGBA')
             if img.size != (60, 60):
                 base, ext = os.path.splitext(file)
                 new_file = f"{base}_60_60.png"
