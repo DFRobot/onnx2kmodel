@@ -158,20 +158,14 @@ python app.py
 └── user_dir
     ├── best.onnx
     ├── data.yaml
-    ├── images
-    │   └── train
-    │       ├── capture_f845db40.png
-    │       ├── capture_fc0e6b54.png
-    │       ├── capture_fc577b9b.png
-    │       ├── capture_fe2a84a1.png
-    │       └── ......
-    └── labels
-        └── train
-            ├── capture_f845db40.txt
-            ├── capture_fc0e6b54.txt
-            ├── capture_fc577b9b.txt
-            ├── capture_fe2a84a1.txt
-            └── ......
+    └── images
+        └── train
+            ├── capture_f845db40.png
+            ├── capture_fc0e6b54.png
+            ├── capture_fc577b9b.png
+            ├── capture_fe2a84a1.png
+            └── ......
+
 
 ```
 
