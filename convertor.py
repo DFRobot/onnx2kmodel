@@ -3,7 +3,7 @@
 import subprocess
 import argparse
 import nncase
-import toml
+import tomlkit
 import sys
 import os
 import cv2
@@ -15,7 +15,7 @@ preprocess = False
 
 input_type = np.uint8
 
-templs_shape = 320
+templs_shape = 640
 
 
 # setup env
@@ -39,8 +39,8 @@ class Convertor(nncase.Compiler):
     def __init__(self, model: str, kmodel: str, conf: str, calib: list):
         _conf: map
         with open(conf, 'r') as f:
-            _conf = toml.load(f)
-
+            _conf = tomlkit.parse(f.read())
+            
         super().__init__(self._set_cpl_opt(_conf))
         with open(model, 'rb') as f:
             _model = Path(model)
@@ -116,7 +116,7 @@ def process_img(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = padding(img)
     #print(img.shape)
-    img = cv2.resize(img, (320, 320))
+    img = cv2.resize(img, (templs_shape, templs_shape))
     img = np.transpose(img, (2, 0, 1))
     img = np.expand_dims(img, axis=0)
     return img
@@ -133,7 +133,9 @@ def gen(_dir):
         yield templ
 
 
-def make(onnx_file, kmodel_file, dataset, toml_file):
+def make(onnx_file, kmodel_file, dataset, toml_file, input_shape):
+    global templs_shape
+    templs_shape = input_shape[2]
     calib = []
     for t in gen(dataset):
         calib.append(t)
@@ -141,6 +143,13 @@ def make(onnx_file, kmodel_file, dataset, toml_file):
     npcalib = np.array(calib).astype(np.uint8)
 
     #print("calib shape", npcalib.shape)
-
+    print("toml_file  ",toml_file)
+    with open(toml_file, 'r', encoding='utf-8') as f:
+            conf = tomlkit.parse(f.read())
+            print(conf)
+            conf['compile_options']['input_shape'] = input_shape
+            print(conf)
+    with open(toml_file, 'w', encoding='utf-8') as f:
+            f.write(tomlkit.dumps(conf))
     c = Convertor(onnx_file, kmodel_file, toml_file, [npcalib])
     c.convert()

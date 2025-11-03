@@ -8,7 +8,8 @@ import shutil
 import yaml
 import json
 import re
-import toml
+import onnx
+import tomlkit
 import locale
 from PIL import Image
 from PyQt5.QtWidgets import (
@@ -124,6 +125,27 @@ def zip_with_md5(source_dir="model_output/", zip_dir="./", base_name="app"):
     print(f"打包完成: {final_zip_path}")
     return final_zip_path
 
+def get_input_shape(onnx_path):
+    # 加载 ONNX 模型
+    model = onnx.load(onnx_path)
+    # 获取输入节点信息
+    input_tensors = model.graph.input
+    input_shapes = {}
+
+    for tensor in input_tensors:
+        shape = []
+        tensor_type = tensor.type.tensor_type
+        if tensor_type.HasField('shape'):
+            for dim in tensor_type.shape.dim:
+                if dim.HasField('dim_value'):
+                    shape.append(dim.dim_value)
+                else:
+                    shape.append(None)  # 动态维度
+        input_shapes[tensor.name] = shape
+
+    return input_shapes
+
+
 class ConvertThread(QThread):
     finished = pyqtSignal()  # 定义信号，执行完毕触发
 
@@ -138,7 +160,10 @@ class ConvertThread(QThread):
     def run(self):
         import convertor
         # 耗时操作放在这里
-        convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path)
+        shapes = get_input_shape(self.onnx_path)
+        if 1 == len(shapes):
+            shape = list(shapes.values())[0]
+        convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path,shape)
         zip_with_md5(base_name=self.output_zip_file)
         self.finished.emit()  # 发射信号通知主线程
 
@@ -149,7 +174,7 @@ class ModelExportApp(QWidget):
         self.setWindowTitle(lang["app_title"][lang_id])
         self.resize(800, 600)
         with open("app_conf.toml", 'r', encoding='utf-8') as f:
-            self._conf = toml.load(f)
+            self._conf = tomlkit.parse(f.read())
             print(self._conf)
         self.separator = {}
         self.init_ui()
@@ -373,7 +398,7 @@ class ModelExportApp(QWidget):
         self._conf["comm"]["title_name_zh_TW"] = self.title_tw.text()
 
         with open("app_conf.toml", 'w', encoding='utf-8') as f:
-            toml.dump(self._conf, f)
+            f.write(tomlkit.dumps(self._conf))
 
     def lang_changed(self, index):
         global lang_id
