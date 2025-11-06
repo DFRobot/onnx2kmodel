@@ -248,11 +248,9 @@ class ModelExportApp(QWidget):
         if self._conf["comm"]["icon_file"] and os.path.exists(self._conf["comm"]["icon_file"]):
             img = Image.open(self._conf["comm"]["icon_file"])
             if img.size != (60, 60):
-                base, ext = os.path.splitext(self._conf["comm"]["icon_file"])
-                new_file = f"{base}_60_60.png"
                 img = img.resize((60, 60))
-                img.save(new_file)
-                self._conf["comm"]["icon_file"] = new_file
+            if os.path.exists("model_output"):
+                img.save("model_output/icon.png")
             pixmap = QPixmap(self._conf["comm"]["icon_file"])
             self.icon_preview.setPixmap(pixmap)
         icon_layout.addWidget(self.icon_button)
@@ -376,7 +374,7 @@ class ModelExportApp(QWidget):
             img = Image.open(file)
             img = img.convert('RGBA')
             if img.size != (60, 60):
-                base, ext = os.path.splitext(file)
+                base, _ = os.path.splitext(file)
                 new_file = f"{base}_60_60.png"
                 img = img.resize((60, 60))
                 img.save(new_file)
@@ -515,9 +513,9 @@ class ModelExportApp(QWidget):
         with open("model_output/desc.json", "w", encoding="utf-8") as f:
             json.dump(desc_data, f, ensure_ascii=False, indent=4)
 
-        icon_file = self._conf["comm"]["icon_file"]
-        if os.path.exists(icon_file):
-            shutil.copy(icon_file, os.path.join("model_output", os.path.basename(icon_file)))
+        #icon_file = self._conf["comm"]["icon_file"]
+        #if os.path.exists(icon_file):
+        #    shutil.copy(icon_file, os.path.join("model_output", os.path.basename(icon_file)))
         # 创建空文件
         open(f"model_output/app.{conf_data['conf']['application']}", "w").close()
         dataset_path = os.path.join(self.model_dataset_dir, "images","train")
