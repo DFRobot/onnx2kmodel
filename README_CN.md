@@ -107,8 +107,8 @@ input_shape = [1, 3, 320, 320]
 input_range = [0, 1]
 input_layout = "NCHW"  # "NHWC"
 swapRB = false
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+mean = [0, 0, 0]
+std = [1, 1, 1]
 letterbox_value = 0
 output_layout = "NCHW"  # "NHWC"
 
@@ -153,6 +153,7 @@ python app.py
 
 用户在app.py的同级目录下，创建如下文件结构
 
+检测和分割模型
 ```shell
 .
 └── user_dir
@@ -167,6 +168,27 @@ python app.py
             └── ......
 
 
+```
+
+分类模型
+
+```shell
+.
+└── user_dir
+    ├── best.onnx
+    ├── data.yaml
+    ├── model.yaml
+    └── images
+        └── train
+            └── cls1    		
+                ├── capture_f845db40.png
+                ├── capture_fc0e6b54.png
+                └── ......
+            └── cls2
+                ├── capture_fc577b9b.png
+                ├── capture_fe2a84a1.png
+                └── ......
+            └── ...
 ```
 
 ## 二哈2上安装应用

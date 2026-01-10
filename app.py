@@ -65,9 +65,16 @@ desc_template = {
     "desc": {
         "application_name": ["name", "名字", "名字"],
         "application_title": ["title", "抬头", "抬頭"],
+        "base_model": "yolov8n-det",
         "stream": True,
         "version": "0.1"
     }
+}
+
+mindplus_base_model_to_kmodel_base_model = {
+    "yolov8n-cls": ["yolov8n-cls", "object-classification-classifier"],
+    "yolov8n-seg": ["yolov8n-seg", "object-segmentation-segment"],
+    "yolov8n": ["yolov8n-det", "object-detection-detector"]
 }
 
 def clean_name(name):
@@ -449,6 +456,7 @@ class ModelExportApp(QWidget):
             self.user_dir_label.show()
         self.setLayout(self.main_layout)
 
+
     def export_model(self):
         print(self._conf)
         if self._conf["comm"]["mode"] == "MindPlus":
@@ -461,6 +469,9 @@ class ModelExportApp(QWidget):
                 print(f"模型包不存在: {model_zip}")
                 return
             extract_zip(model_zip, "model_input")
+            #将data.yaml 改名为model.yaml
+            os.rename(os.path.join("model_input", "data.yaml"), os.path.join("model_input", "model.yaml"))
+
             dataset_zip = self._conf["mindplus_options"]["dataset_zip"] 
             if not dataset_zip or not os.path.exists(dataset_zip):
                 print(f"数据集包不存在: {dataset_zip}")
@@ -469,6 +480,7 @@ class ModelExportApp(QWidget):
             extract_zip(dataset_zip, "model_input")
             self.model_dataset_dir = "model_input"
         else:
+            #使用用户自定义目录
             self.model_dataset_dir = self._conf["user_options"]["user_dir"]
         if not self.app_zh.text() or not self.app_en.text() or not self.app_tw.text():
             print(lang["app_name_cannot_be_empty"][lang_id])
@@ -484,22 +496,64 @@ class ModelExportApp(QWidget):
         self.export_btn.setText(lang["converting_please_wait"][lang_id])
         self.export_btn.repaint()   # 强制刷新按钮
         QApplication.processEvents()  # 处理事件队列，刷新界面
+        
+        
+        #分析model.yaml，获取base_model
+        model_yaml_path = os.path.join(self.model_dataset_dir, "model.yaml")
+        print(f"model_yaml_path={model_yaml_path}",flush=True)
+        with open(model_yaml_path, "r", encoding="utf-8") as f:
+            model_config = yaml.safe_load(f)
+            print(f"model_config={model_config}",flush=True)
+        self.base_model = model_config.get("base_model", "yolov8n")
+
+        if self.base_model == "yolov8n-cls":
+            #生成分类模型的data.yaml
+            with open(model_yaml_path, "r", encoding="utf-8") as f:
+                model_config = yaml.safe_load(f)
+                labels = model_config.get("labels", [])
+                print(f"labels={labels}",flush=True)
+                yaml_path = os.path.join(self.model_dataset_dir, "data.yaml")
+                # 生成新的data.yaml,注意分类的图片没有images上层目录
+                new_data = {
+                    "path": "./",
+                    "train": "./train",
+                    "names": labels
+                }
+                with open(os.path.join(self.model_dataset_dir, "data.yaml"), "w", encoding="utf-8") as f:
+                    yaml.dump(new_data, f, default_flow_style=False, allow_unicode=True)
+
         #读取数据集标签
         yaml_path = os.path.join(self.model_dataset_dir, "data.yaml")
         with open(yaml_path, "r", encoding="utf-8") as f:
             source_config = yaml.safe_load(f)
+            print(f"source_config={source_config}",flush=True)
+            #用户自定义目录，我们使用了统一格式，但是cls的data.yaml中train目录可能是./train,这里兼容一下
+            if os.path.exists(os.path.join(self.model_dataset_dir, source_config["train"])):
+                self.dataset_path = os.path.join(self.model_dataset_dir, source_config["train"])
+            else:
+                self.dataset_path = os.path.join(self.model_dataset_dir, "images","train")
         names = source_config.get("names", {})
-        name_list = [names[i] for i in sorted(names.keys())]
+        name_list = [str(names[i]) for i in sorted(names.keys())]
 
         conf_data = conf_template
         conf_data["conf"]["application"] = "dfrobot_" + clean_name(self.app_en.text())
         conf_data["conf"]["model_attach"]["classes"]["zh-CN"] = name_list
         conf_data["conf"]["model_attach"]["classes"]["zh-TW"] = name_list
         conf_data["conf"]["model_attach"]["classes"]["en"] = name_list
+        conf_data["conf"]["model_info"][0]["name"] = mindplus_base_model_to_kmodel_base_model[self.base_model][1]
         conf_data["conf"]["model_info"][0]["filename"] = conf_data["conf"]["application"] + ".kmodel"
         conf_data["conf"]["defconfig"]["det_thres"] = self.threshold_slider.value() / 100
-
+        if self.base_model == "yolov8n-seg":
+            conf_data["conf"]["defconfig"]["msk_thres"] = conf_data["conf"]["defconfig"]["det_thres"]
+        elif self.base_model == "yolov8n-cls":
+            conf_data["conf"]["defconfig"]["conf_thres"] = conf_data["conf"]["defconfig"]["det_thres"]
+            conf_data["conf"]["defconfig"]["rslt_max_num"] = len(name_list)
+            conf_data["conf"]["defconfig"].pop("det_thres", None)
+            conf_data["conf"]["defconfig"].pop("nms_thres", None)
+        
+        shutil.rmtree("model_output")
         os.makedirs("model_output", exist_ok=True)
+
         with open("model_output/conf.json", "w", encoding="utf-8") as f:
             json.dump(conf_data, f, ensure_ascii=False, indent=4)
 
@@ -510,27 +564,31 @@ class ModelExportApp(QWidget):
         desc_data["desc"]["application_title"] = [
             self.title_en.text().replace("\\n", "\n"), self.title_zh.text().replace("\\n", "\n"), self.title_tw.text().replace("\\n", "\n")
         ]
+
+        desc_data["desc"]["base_model"] = mindplus_base_model_to_kmodel_base_model[self.base_model][0]
+
         with open("model_output/desc.json", "w", encoding="utf-8") as f:
             json.dump(desc_data, f, ensure_ascii=False, indent=4)
-
-        #icon_file = self._conf["comm"]["icon_file"]
-        #if os.path.exists(icon_file):
-        #    shutil.copy(icon_file, os.path.join("model_output", os.path.basename(icon_file)))
+        
+        icon_file = self._conf["comm"]["icon_file"]
+        if os.path.exists(icon_file):
+            shutil.copy(icon_file, os.path.join("model_output/icon.png"))
+        
         # 创建空文件
         open(f"model_output/app.{conf_data['conf']['application']}", "w").close()
-        dataset_path = os.path.join(self.model_dataset_dir, "images","train")
+
         onnx_path = os.path.join(self.model_dataset_dir, "best.onnx")
         kmodel_path = os.path.join("model_output", conf_data["conf"]["model_info"][0]["filename"])
         output_zip = conf_data["conf"]["application"]
 
-        self.thread = ConvertThread(onnx_path, kmodel_path, dataset_path, "kmodel_conf.toml", output_zip)
+        self.thread = ConvertThread(onnx_path, kmodel_path, self.dataset_path, "kmodel_conf.toml", output_zip)
         self.thread.finished.connect(self.on_conversion_finished)
         self.thread.start()
         print("正在转换")
 
     def on_conversion_finished(self):
         self.export_btn.setText(lang["convert_and_package"][lang_id])
-        print("转换完成！")
+        print("转换完成！")        
 
     def pack(self):
         # 打包 ZIP
@@ -546,6 +604,8 @@ if __name__ == "__main__":
         lang_id = 1
     else:
         lang_id = 0
+    os.makedirs("model_output", exist_ok=True)
+    os.makedirs("model_input", exist_ok=True)
     app = QApplication(sys.argv)
     window = ModelExportApp()
     window.show()

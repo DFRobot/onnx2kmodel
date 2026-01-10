@@ -121,7 +121,7 @@ def process_img(img):
     img = np.expand_dims(img, axis=0)
     return img
 
-
+'''
 def gen(_dir):
     path = Path(_dir)
     files = [f.name for f in path.rglob('*') if f.is_file()]
@@ -131,7 +131,26 @@ def gen(_dir):
         templ = cv2.imread(img_path)
         templ = process_img(templ)
         yield templ
+'''
 
+def gen(_dir):
+    path = Path(_dir)
+
+    for f in path.rglob('*'):
+        if not f.is_file():
+            continue
+        
+        img_path = str(f)   # ¹Ø¼ü£º²»Òª f.name
+
+        data = np.fromfile(img_path, dtype=np.uint8)
+        templ = cv2.imdecode(data, cv2.IMREAD_COLOR)
+
+        if templ is None:
+            print(f"[WARN] read failed: {img_path}")
+            continue
+
+        templ = process_img(templ)
+        yield templ
 
 def make(onnx_file, kmodel_file, dataset, toml_file, input_shape):
     global templs_shape

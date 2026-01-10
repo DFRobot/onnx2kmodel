@@ -109,8 +109,8 @@ input_shape = [1, 3, 320, 320]
 input_range = [0, 1]
 input_layout = "NCHW"  # "NHWC"
 swapRB = false
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+mean = [0, 0, 0]
+std = [1, 1, 1]
 letterbox_value = 0
 output_layout = "NCHW"  # "NHWC"
 
@@ -157,11 +157,13 @@ For experienced users familiar with YOLO dataset structure.
 
 In the same directory as app.py, create the following structure:
 
+Detection and Segmentation Model
 ```shell
 .
 └── user_dir
     ├── best.onnx
     ├── data.yaml
+    ├── model.yaml
     └── images
         └── train
             ├── capture_f845db40.png
@@ -172,7 +174,27 @@ In the same directory as app.py, create the following structure:
 
 ```
 
-## Installing the Application on HuskyLens 2
+Classification Model
+```shell
+.
+└── user_dir
+    ├── best.onnx
+    ├── data.yaml
+    ├── model.yaml
+    └── images
+        └── train
+            └── cls1    		
+                ├── capture_f845db40.png
+                ├── capture_fc0e6b54.png
+                └── ......
+            └── cls2
+                ├── capture_fc577b9b.png
+                ├── capture_fe2a84a1.png
+                └── ......
+            └── ...
+```
+
+## 二哈2上安装应用
 
 * Copy the generated ZIP package to:Huskylens\storage\installation_package on the HuskyLens MTP device.
 * On HuskyLens, open Model Installation → Local Installation.The app will install automatically.
