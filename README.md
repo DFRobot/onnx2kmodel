@@ -194,7 +194,7 @@ Classification Model
             └── ...
 ```
 
-## 二哈2上安装应用
+## HuskyLens V2 Installation Package
 
 * Copy the generated ZIP package to:Huskylens\storage\installation_package on the HuskyLens MTP device.
 * On HuskyLens, open Model Installation → Local Installation.The app will install automatically.
