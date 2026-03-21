@@ -203,4 +203,3 @@ Classification Model
 ## Known Issues
 
 * The GUI becomes unresponsive during model conversion (conversion runs on the main thread).
-* Multi-language labels are not yet supported.
