@@ -6,7 +6,7 @@
 
 ## 功能特性
 
--  **支持yolov8n目标检测**
+-  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型**
 -  **支持python 3.10 及以上环境** 
 -  **可以运行在win10 linux mac多系统上** 
 -  **使用训练集的图片量化** 
@@ -159,6 +159,7 @@ python app.py
 └── user_dir
     ├── best.onnx
     ├── data.yaml
+    ├── model.yaml
     └── images
         └── train
             ├── capture_f845db40.png
@@ -199,4 +200,3 @@ python app.py
 ## 遗留问题
 
 * 点击转换时，GUI线程会卡住，转换完成后才可继续操作
-* 不支持多语言标签

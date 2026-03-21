@@ -8,6 +8,7 @@ import shutil
 import yaml
 import json
 import re
+import copy
 import onnx
 import tomlkit
 import locale
@@ -48,12 +49,18 @@ lang = {
     "app_name_cannot_be_empty": ["App Name cannot be empty","应用名称不能为空"],
     "title_name_cannot_be_empty": ["Title Name cannot be empty","标题名称不能为空"],
     "converting_please_wait": ["Converting, please wait...","转换中......, 需要几分钟，请耐心等待"],
+    "dialog_warning_title": ["Warning", "警告"],
+    "conversion_complete_title": ["Conversion Complete", "转换完成"],
+    "conversion_complete_message": [
+        "Conversion complete!\n{path}",
+        "转换完成！\n{path}",
+    ],
 }
 
 conf_template = {
     "conf": {
         "application": "",
-        "defconfig": {"det_thres": 0.3, "nms_thres": 0.6},
+        "defconfig": {"conf_thres": 0.3},
         "infer_isp": {"format": "BG3P", "channel": 3, "width": 864, "height": 486},
         "fps_limit": 15,
         "model_info": [{"name": "object-detection-detector", "filename": ""}],
@@ -74,7 +81,10 @@ desc_template = {
 mindplus_base_model_to_kmodel_base_model = {
     "yolov8n-cls": ["yolov8n-cls", "object-classification-classifier"],
     "yolov8n-seg": ["yolov8n-seg", "object-segmentation-segment"],
-    "yolov8n": ["yolov8n-det", "object-detection-detector"]
+    "yolov8n": ["yolov8n-det", "object-detection-detector"],
+    "yolo11n-cls": ["yolo11n-cls", "object-classification-classifier"],
+    "yolo11n-seg": ["yolo11n-seg", "object-segmentation-segment"],
+    "yolo11n": ["yolo11n-det", "object-detection-detector"]
 }
 
 def clean_name(name):
@@ -154,7 +164,7 @@ def get_input_shape(onnx_path):
 
 
 class ConvertThread(QThread):
-    finished = pyqtSignal()  # 定义信号，执行完毕触发
+    finished = pyqtSignal(str)  # 定义信号，执行完毕触发，传递文件路径
 
     def __init__(self, onnx_path, kmodel_path, dataset_path, conf_path, output_zip_file):
         super().__init__()
@@ -171,8 +181,8 @@ class ConvertThread(QThread):
         if 1 == len(shapes):
             shape = list(shapes.values())[0]
         convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path,shape)
-        zip_with_md5(base_name=self.output_zip_file)
-        self.finished.emit()  # 发射信号通知主线程
+        file_path = zip_with_md5(base_name=self.output_zip_file)
+        self.finished.emit(file_path)  # 发射信号通知主线程
 
 
 class ModelExportApp(QWidget):
@@ -195,7 +205,7 @@ class ModelExportApp(QWidget):
         lang_layout.addWidget(QLabel("Language:"))
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(["English", "中文"])
-        self.lang_combo.setCurrentIndex(1)
+        self.lang_combo.setCurrentIndex(lang_id)
         self.lang_combo.currentIndexChanged.connect(self.lang_changed)
         lang_layout.addWidget(self.lang_combo)
         self.main_layout.addLayout(lang_layout)
@@ -485,12 +495,12 @@ class ModelExportApp(QWidget):
         if not self.app_zh.text() or not self.app_en.text() or not self.app_tw.text():
             print(lang["app_name_cannot_be_empty"][lang_id])
             #弹出对话框
-            QMessageBox.warning(self, "Warning", lang["app_name_cannot_be_empty"][lang_id])
+            QMessageBox.warning(self, lang["dialog_warning_title"][lang_id], lang["app_name_cannot_be_empty"][lang_id])
             return
         if not self.title_zh.text() or not self.title_en.text() or not self.title_tw.text():
             print(lang["title_name_cannot_be_empty"][lang_id])
             #弹出对话框
-            QMessageBox.warning(self, "Warning", lang["title_name_cannot_be_empty"][lang_id])
+            QMessageBox.warning(self, lang["dialog_warning_title"][lang_id], lang["title_name_cannot_be_empty"][lang_id])
             return
         
         self.export_btn.setText(lang["converting_please_wait"][lang_id])
@@ -506,7 +516,8 @@ class ModelExportApp(QWidget):
             print(f"model_config={model_config}",flush=True)
         self.base_model = model_config.get("base_model", "yolov8n")
 
-        if self.base_model == "yolov8n-cls":
+        # 分类模型数据集中没有data.yaml,未来兼容性，我们生成一个
+        if self.base_model.endswith("-cls"):
             #生成分类模型的data.yaml
             with open(model_yaml_path, "r", encoding="utf-8") as f:
                 model_config = yaml.safe_load(f)
@@ -535,29 +546,32 @@ class ModelExportApp(QWidget):
         names = source_config.get("names", {})
         name_list = [str(names[i]) for i in sorted(names.keys())]
 
-        conf_data = conf_template
+        conf_data = copy.deepcopy(conf_template)
         conf_data["conf"]["application"] = "dfrobot_" + clean_name(self.app_en.text())
         conf_data["conf"]["model_attach"]["classes"]["zh-CN"] = name_list
         conf_data["conf"]["model_attach"]["classes"]["zh-TW"] = name_list
         conf_data["conf"]["model_attach"]["classes"]["en"] = name_list
         conf_data["conf"]["model_info"][0]["name"] = mindplus_base_model_to_kmodel_base_model[self.base_model][1]
         conf_data["conf"]["model_info"][0]["filename"] = conf_data["conf"]["application"] + ".kmodel"
-        conf_data["conf"]["defconfig"]["det_thres"] = self.threshold_slider.value() / 100
-        if self.base_model == "yolov8n-seg":
+        conf_data["conf"]["defconfig"]["conf_thres"] = self.threshold_slider.value() / 100
+
+        if self.base_model.endswith("-seg"):
+            conf_data["conf"]["defconfig"]["det_thres"] = self.threshold_slider.value() / 100
+            conf_data["conf"]["defconfig"]["nms_thres"] = 0.2
             conf_data["conf"]["defconfig"]["msk_thres"] = conf_data["conf"]["defconfig"]["det_thres"]
-        elif self.base_model == "yolov8n-cls":
-            conf_data["conf"]["defconfig"]["conf_thres"] = conf_data["conf"]["defconfig"]["det_thres"]
+        elif self.base_model.endswith("-cls"):
             conf_data["conf"]["defconfig"]["rslt_max_num"] = len(name_list)
-            conf_data["conf"]["defconfig"].pop("det_thres", None)
-            conf_data["conf"]["defconfig"].pop("nms_thres", None)
-        
+        else:
+            conf_data["conf"]["defconfig"]["det_thres"] = self.threshold_slider.value() / 100
+            conf_data["conf"]["defconfig"]["nms_thres"] = 0.2
+
         shutil.rmtree("model_output")
         os.makedirs("model_output", exist_ok=True)
 
         with open("model_output/conf.json", "w", encoding="utf-8") as f:
             json.dump(conf_data, f, ensure_ascii=False, indent=4)
 
-        desc_data = desc_template
+        desc_data = copy.deepcopy(desc_template)
         desc_data["desc"]["application_name"] = [
             self.app_en.text().replace("\\n", "\n"), self.app_zh.text().replace("\\n", "\n"), self.app_tw.text().replace("\\n", "\n")
         ]
@@ -586,13 +600,18 @@ class ModelExportApp(QWidget):
         self.thread.start()
         print("正在转换")
 
-    def on_conversion_finished(self):
+    def on_conversion_finished(self, file_path):
         self.export_btn.setText(lang["convert_and_package"][lang_id])
-        print("转换完成！")        
+        QMessageBox.information(
+            self,
+            lang["conversion_complete_title"][lang_id],
+            lang["conversion_complete_message"][lang_id].format(path=file_path),
+        )
+        print(f"转换完成！文件路径: {file_path}")        
 
     def pack(self):
         # 打包 ZIP
-        conf_data = conf_template
+        conf_data = copy.deepcopy(conf_template)
         conf_data["conf"]["application"] = "dfrobot_" + clean_name(self.app_en.text())
         zip_with_md5(base_name=conf_data["conf"]["application"])
         print("转换完成！")

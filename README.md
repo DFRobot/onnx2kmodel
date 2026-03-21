@@ -6,7 +6,7 @@ Convert ONNX models into kmodel format and package them into HuskyLens 2 ZIP ins
 
 ## Features
 
--  **Supports YOLOv8n object detection**
+-  **Supports YOLOv8n, YOLO11n, object detection, semantic segmentation, and object classification models**
 -  **Supports Python 3.10 and above** 
 -  **Runs on Windows 10, Linux** 
 -  **Quantization using training dataset images** 
