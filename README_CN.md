@@ -6,7 +6,7 @@
 
 ## 功能特性
 
--  **支持yolov8n目标检测**
+-  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型**
 -  **支持python 3.10 及以上环境** 
 -  **可以运行在win10 linux mac多系统上** 
 -  **使用训练集的图片量化** 
@@ -107,8 +107,8 @@ input_shape = [1, 3, 320, 320]
 input_range = [0, 1]
 input_layout = "NCHW"  # "NHWC"
 swapRB = false
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+mean = [0, 0, 0]
+std = [1, 1, 1]
 letterbox_value = 0
 output_layout = "NCHW"  # "NHWC"
 
@@ -153,11 +153,13 @@ python app.py
 
 用户在app.py的同级目录下，创建如下文件结构
 
+检测和分割模型
 ```shell
 .
 └── user_dir
     ├── best.onnx
     ├── data.yaml
+    ├── model.yaml
     └── images
         └── train
             ├── capture_f845db40.png
@@ -169,6 +171,27 @@ python app.py
 
 ```
 
+分类模型
+
+```shell
+.
+└── user_dir
+    ├── best.onnx
+    ├── data.yaml
+    ├── model.yaml
+    └── images
+        └── train
+            └── cls1    		
+                ├── capture_f845db40.png
+                ├── capture_fc0e6b54.png
+                └── ......
+            └── cls2
+                ├── capture_fc577b9b.png
+                ├── capture_fe2a84a1.png
+                └── ......
+            └── ...
+```
+
 ## 二哈2上安装应用
 
 * 将zip安装包拷贝到二哈MTP设备的 Huskylens\storage\installation_package  目录
@@ -177,4 +200,3 @@ python app.py
 ## 遗留问题
 
 * 点击转换时，GUI线程会卡住，转换完成后才可继续操作
-* 不支持多语言标签

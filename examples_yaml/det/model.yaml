@@ -1,0 +1,7 @@
+aitools_id: ai-tools-detection
+aitools_version: 0.0.1
+description: Cup-Recognition
+base_model: yolov8n
+input_shape: [320, 320]
+labels:
+  0: cup
