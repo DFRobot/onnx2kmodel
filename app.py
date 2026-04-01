@@ -84,7 +84,7 @@ mindplus_base_model_to_kmodel_base_model = {
     "yolov8n": ["yolov8n-det", "object-detection-detector"],
     "yolo11n-cls": ["yolo11n-cls", "object-classification-classifier"],
     "yolo11n-seg": ["yolo11n-seg", "object-segmentation-segment"],
-    "yolo11n": ["yolo11n-det", "object-detection-detector"]
+    "yolo11n": ["yolo11n-det", "object-detection-detector"],
 }
 
 def clean_name(name):
@@ -161,6 +161,123 @@ def get_input_shape(onnx_path):
         input_shapes[tensor.name] = shape
 
     return input_shapes
+
+
+def get_tensor_shape(tensor):
+    shape = []
+    tensor_type = tensor.type.tensor_type
+    if tensor_type.HasField('shape'):
+        for dim in tensor_type.shape.dim:
+            if dim.HasField('dim_value'):
+                shape.append(dim.dim_value)
+            else:
+                shape.append(-1)
+    return shape
+
+
+def get_image_size_from_input_shape(shape):
+    if len(shape) < 4:
+        return []
+    if shape[1] in (1, 3) and shape[-1] not in (1, 3):
+        return [shape[2], shape[3]]
+    if shape[-1] in (1, 3) and shape[1] not in (1, 3):
+        return [shape[1], shape[2]]
+    return [shape[-2], shape[-1]]
+
+
+def analyze_onnx_model(onnx_path):
+    model = onnx.load(onnx_path)
+    input_shape = []
+    if model.graph.input:
+        input_shape = get_image_size_from_input_shape(get_tensor_shape(model.graph.input[0]))
+
+    outputs = model.graph.output
+    output_shapes = [get_tensor_shape(out) for out in outputs]
+    base_model = None
+
+    if len(outputs) == 1:
+        shape = output_shapes[0]
+        if len(shape) == 2:
+            base_model = "yolov8n-cls"
+        elif len(shape) == 3:
+            last_dim = shape[-1]
+            if last_dim == 6 or shape[1] > 6 or last_dim > 6:
+                base_model = "yolov8n"
+    elif len(outputs) == 2:
+        shape0 = output_shapes[0]
+        shape1 = output_shapes[1]
+        if len(shape0) == 3 and len(shape1) == 4:
+            base_model = "yolov8n-seg"
+
+    if not base_model:
+        raise ValueError(f"无法根据 ONNX 输出结构识别模型类型: {output_shapes}")
+    if not input_shape:
+        raise ValueError("无法从 ONNX 输入中识别 input_shape")
+
+    return {
+        "base_model": base_model,
+        "input_shape": input_shape,
+    }
+
+
+def get_name_list_from_data_yaml(data_yaml_path):
+    with open(data_yaml_path, "r", encoding="utf-8") as f:
+        source_config = yaml.safe_load(f) or {}
+
+    names = source_config.get("names", {})
+    if isinstance(names, list):
+        name_list = [str(name) for name in names]
+    elif isinstance(names, dict):
+        def sort_key(key):
+            try:
+                return int(key)
+            except (TypeError, ValueError):
+                return key
+
+        name_list = [str(value) for key, value in sorted(names.items(), key=lambda item: sort_key(item[0]))]
+    else:
+        raise ValueError(f"data.yaml 中的 names 字段格式不支持: {type(names)}")
+
+    return source_config, name_list
+
+
+def build_model_config_from_custom_dir(model_dataset_dir):
+    onnx_path = os.path.join(model_dataset_dir, "best.onnx")
+    data_yaml_path = os.path.join(model_dataset_dir, "data.yaml")
+    model_info = analyze_onnx_model(onnx_path)
+    _, name_list = get_name_list_from_data_yaml(data_yaml_path)
+
+    if model_info["base_model"].endswith("-cls"):
+        aitools_id = "ai-tools-classification"
+    elif model_info["base_model"].endswith("-seg"):
+        aitools_id = "ai-tools-segmentation"
+    else:
+        aitools_id = "ai-tools-detection"
+
+    return {
+        "aitools_id": aitools_id,
+        "aitools_version": "0.0.1",
+        "description": os.path.basename(os.path.normpath(model_dataset_dir)),
+        "base_model": model_info["base_model"],
+        "input_shape": model_info["input_shape"],
+        "labels": {index: name for index, name in enumerate(name_list)},
+    }
+
+
+def write_model_yaml(model_yaml_path, model_config):
+    lines = [
+        f"aitools_id: {model_config['aitools_id']}",
+        f"aitools_version: {model_config['aitools_version']}",
+        f"description: {model_config['description']}",
+        f"base_model: {model_config['base_model']}",
+        f"input_shape: {json.dumps(model_config['input_shape'], ensure_ascii=False)}",
+        "labels:",
+    ]
+    for index, name in model_config["labels"].items():
+        lines.append(f"  {index}: {json.dumps(str(name), ensure_ascii=False)}")
+
+    with open(model_yaml_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 class ConvertThread(QThread):
@@ -492,6 +609,11 @@ class ModelExportApp(QWidget):
         else:
             #使用用户自定义目录
             self.model_dataset_dir = self._conf["user_options"]["user_dir"]
+            model_yaml_path = os.path.join(self.model_dataset_dir, "model.yaml")
+            if not os.path.exists(model_yaml_path):
+                model_config = build_model_config_from_custom_dir(self.model_dataset_dir)
+                write_model_yaml(model_yaml_path, model_config)
+                print(f"已自动生成 model.yaml: {model_yaml_path}")
         if not self.app_zh.text() or not self.app_en.text() or not self.app_tw.text():
             print(lang["app_name_cannot_be_empty"][lang_id])
             #弹出对话框
@@ -535,16 +657,13 @@ class ModelExportApp(QWidget):
 
         #读取数据集标签
         yaml_path = os.path.join(self.model_dataset_dir, "data.yaml")
-        with open(yaml_path, "r", encoding="utf-8") as f:
-            source_config = yaml.safe_load(f)
-            print(f"source_config={source_config}",flush=True)
-            #用户自定义目录，我们使用了统一格式，但是cls的data.yaml中train目录可能是./train,这里兼容一下
-            if os.path.exists(os.path.join(self.model_dataset_dir, source_config["train"])):
-                self.dataset_path = os.path.join(self.model_dataset_dir, source_config["train"])
-            else:
-                self.dataset_path = os.path.join(self.model_dataset_dir, "images","train")
-        names = source_config.get("names", {})
-        name_list = [str(names[i]) for i in sorted(names.keys())]
+        source_config, name_list = get_name_list_from_data_yaml(yaml_path)
+        print(f"source_config={source_config}",flush=True)
+        #用户自定义目录，我们使用了统一格式，但是cls的data.yaml中train目录可能是./train,这里兼容一下
+        if os.path.exists(os.path.join(self.model_dataset_dir, source_config["train"])):
+            self.dataset_path = os.path.join(self.model_dataset_dir, source_config["train"])
+        else:
+            self.dataset_path = os.path.join(self.model_dataset_dir, "images","train")
 
         conf_data = copy.deepcopy(conf_template)
         conf_data["conf"]["application"] = "dfrobot_" + clean_name(self.app_en.text())
