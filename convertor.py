@@ -2,35 +2,27 @@
 
 import subprocess
 import argparse
-import nncase
-import tomlkit
 import sys
 import os
 import cv2
 import numpy as np
 from pathlib import Path
 
-swapRB = False
-preprocess = False
-
-input_type = np.uint8
-
-templs_shape = 640
-
-
-# setup env
-result = subprocess.run(["pip", "show", "nncase"], capture_output=True)
+result = subprocess.run([sys.executable, "-m", "pip", "show", "nncase"], capture_output=True)
 line_break = "\n"
 if sys.platform == "win32":
     line_break = "\r\n"
-location_s = [i for i in result.stdout.decode().split(
-    line_break) if i.startswith("Location:")]
-location = location_s[0].split(": ")[1]
-if "PATH" in os.environ:
-    os.environ["PATH"] += os.pathsep + location
-else:
-    os.environ["PATH"] = location
-os.environ["NNCASE_PLUGIN_PATH"] = location
+location_s = [i for i in result.stdout.decode().split(line_break) if i.startswith("Location:")]
+if location_s:
+    location = location_s[0].split(": ")[1]
+    if "PATH" in os.environ:
+        os.environ["PATH"] += os.pathsep + location
+    else:
+        os.environ["PATH"] = location
+    os.environ["NNCASE_PLUGIN_PATH"] = location
+
+import nncase
+import tomlkit
 
 
 class Convertor(nncase.Compiler):
@@ -134,30 +126,38 @@ def gen(_dir):
 '''
 
 def gen(_dir):
-    path = Path(_dir)
-
+    path = Path(_dir).resolve()
+    count = 0
     for f in path.rglob('*'):
         if not f.is_file():
             continue
-        
-        img_path = str(f)   # �ؼ�����Ҫ f.name
+        img_path = str(f)
 
         data = np.fromfile(img_path, dtype=np.uint8)
         templ = cv2.imdecode(data, cv2.IMREAD_COLOR)
 
         if templ is None:
-            print(f"[WARN] read failed: {img_path}")
             continue
 
         templ = process_img(templ)
+        count += 1
+        print(f" -> 成功载入校准图 [{count}/100]: {f.name}", flush=True)
         yield templ
 
 def make(onnx_file, kmodel_file, dataset, toml_file, input_shape):
     global templs_shape
     templs_shape = input_shape[2]
     calib = []
+    max_calib_images = 100
     for t in gen(dataset):
         calib.append(t)
+        if len(calib) >= max_calib_images:
+            break
+
+    if len(calib) == 0:
+        print(f"\n[错误] 严重警告：在目录 '{dataset}' 下未找到任何有效的图片！", flush=True)
+        print("请检查该文件夹是否存在，且里面是否确实含有 .jpg 或 .png 图片。\n", flush=True)
+        raise FileNotFoundError(f"未能在 {dataset} 中找到校准图片")
 
     npcalib = np.array(calib).astype(np.uint8)
 

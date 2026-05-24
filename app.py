@@ -22,7 +22,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QThread, pyqtSignal
 import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', write_through=True)
 
 lang_id = 0
 lang = {
@@ -82,9 +82,15 @@ mindplus_base_model_to_kmodel_base_model = {
     "yolov8n-cls": ["yolov8n-cls", "object-classification-classifier"],
     "yolov8n-seg": ["yolov8n-seg", "object-segmentation-segment"],
     "yolov8n": ["yolov8n-det", "object-detection-detector"],
-    "yolo11n-cls": ["yolo11n-cls", "object-classification-classifier"],
-    "yolo11n-seg": ["yolo11n-seg", "object-segmentation-segment"],
-    "yolo11n": ["yolo11n-det", "object-detection-detector"],
+
+    "yolo11n-cls": ["yolov8n-cls", "object-classification-classifier"],
+    "yolov11n-cls": ["yolov8n-cls", "object-classification-classifier"],
+
+    "yolo11n-seg": ["yolov8n-seg", "object-segmentation-segment"],
+    "yolov11n-seg": ["yolov8n-seg", "object-segmentation-segment"],
+
+    "yolo11n": ["yolov8n-det", "object-detection-detector"],
+    "yolov11n": ["yolov8n-det", "object-detection-detector"],
 }
 
 def clean_name(name):
@@ -292,14 +298,19 @@ class ConvertThread(QThread):
         self.output_zip_file = output_zip_file
 
     def run(self):
-        import convertor
-        # 耗时操作放在这里
-        shapes = get_input_shape(self.onnx_path)
-        if 1 == len(shapes):
-            shape = list(shapes.values())[0]
-        convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path,shape)
-        file_path = zip_with_md5(base_name=self.output_zip_file)
-        self.finished.emit(file_path)  # 发射信号通知主线程
+        try:
+            import convertor
+            # 耗时操作放在这里
+            shapes = get_input_shape(self.onnx_path)
+            if 1 == len(shapes):
+                shape = list(shapes.values())[0]
+            convertor.make(self.onnx_path, self.kmodel_path, self.dataset_path, self.conf_path, shape)
+            file_path = zip_with_md5(base_name=self.output_zip_file)
+            self.finished.emit(file_path)  # 发射信号通知主线程
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"!!! 子线程发生严重错误: {e} !!!", flush=True)
 
 
 class ModelExportApp(QWidget):
@@ -705,7 +716,7 @@ class ModelExportApp(QWidget):
         
         icon_file = self._conf["comm"]["icon_file"]
         if os.path.exists(icon_file):
-            shutil.copy(icon_file, os.path.join("model_output/icon.png"))
+            shutil.copy(icon_file, os.path.join("model_output", "icon.png"))
         
         # 创建空文件
         open(f"model_output/app.{conf_data['conf']['application']}", "w").close()
@@ -736,6 +747,12 @@ class ModelExportApp(QWidget):
         print("转换完成！")
 
 if __name__ == "__main__":
+    import traceback
+    # 拦截 PyQt5 的主线程异常，防止 0xC0000409 闪退
+    def exception_hook(type, value, tb):
+        traceback.print_exception(type, value, tb)
+        print(f"\n[程序内部报错] {value}", flush=True)
+    sys.excepthook = exception_hook
     language_code = locale.getdefaultlocale()[0]
     print(f"默认语言环境: {language_code}")
     if language_code.startswith("zh_CN"):
