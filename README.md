@@ -133,13 +133,14 @@ export_weight_range_by_channel = false
 python app.py
 ```
 
-## Program Usage Instructions
+## Onnx2kmodel Usage Instructions
 This tool can convert ONNX models into the kmodel format specifically used by HUSKYLENS 2. And ONNX models can be derived from YOLOv8N and YOLO11N models.
 Here are two methods of training two YOLO models, converting them into ONNX models and ultimately generating the HUSKYLENS 2 installation package.
 Users can choose either one at will.
 
 ### 1. Create the installation package for HUSKYLENS 2 based on Mind+
-This method use [Mind+ V2](https://mindplus.cc/en/) to train the yolo mode, and convert the yolo model into onnx model in Mind+ V2. For the detail description, please visit HUSKYLENS 2 wiki, chapter 6, [No-Code Model Training and Deployment-Mind+ Local](https://wiki.dfrobot.com/sen0638/docs/22604#1.2%20No-Code%20Model%20Training%20and%20Deployment-Mind%2B%20Local).
+This method use [Mind+ V2](https://mindplus.cc/en/) to train the yolo mode, and convert the yolo model into onnx model in Mind+ V2. 
+For the detail description, please visit  [No-Code Model Training and Deployment-Mind+ Local](https://wiki.dfrobot.com/sen0638/docs/22604#1.2%20No-Code%20Model%20Training%20and%20Deployment-Mind%2B%20Local) in HUSKYLENS 2 wiki.
 
 Users who train the model using this method need to confirm the presence of two compressed files before proceeding to the next step:
 1. A.zip compressed file exported from Mind+ containing the ONNX model

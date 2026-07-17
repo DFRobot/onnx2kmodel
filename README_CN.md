@@ -131,13 +131,13 @@ export_weight_range_by_channel = false
 python app.py
 ```
 
-## 程序使用说明
-该工具可将onnx模型转化为二哈识图2专用的kmodel模型格式。而onnx模型可由yolov8n, yolo11n模型转化而来。
-以下为两个训练yolo模型，转化为onnx模型最终生成二哈识图安装包的过程。
+## onnx2kmodel使用说明
+该工具可将onnx模型转化为二哈识图2专用的kmodel模型格式。而onnx模型可由yolov8n, yolo11n模型转化而来。<br/>
+以下为两个训练yolo模型，转化为onnx模型最终生成二哈识图安装包的过程。<br/>
 使用者可任选其一
 
 ### 1. 基于Mind+制作二哈安装包
-此方法使用[Mind+ V2](https://mindplus.cc/download.html)来训练yolo模型，并且在Mind+中直接转化为onnx模型
+此方法使用[Mind+ V2](https://mindplus.cc/download.html)来训练yolo模型，并且在Mind+中直接转化为onnx模型<br/>
 可访问[二哈识图2 Mind+训练模型并离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.2%20Mind%2B%E6%97%A0%E4%BB%A3%E7%A0%81%E6%96%B9%E5%BC%8F%E8%AE%AD%E7%BB%83%E5%B9%B6%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%9E%8B(%E6%9C%AC%E5%9C%B0))以查看详细说明。
 
 使用该方式训练模型的用户，执行下一步前需要确认有两个压缩包：
