@@ -6,7 +6,7 @@ Convert ONNX models into kmodel format and package them into HuskyLens 2 ZIP ins
 
 ## Features
 
--  **Supports YOLOv8n, YOLO11n, object detection, semantic segmentation, and object classification models**
+-  **Supports YOLOv8n, YOLO11n, object detection, semantic segmentation, and object classification models(imgsz 320 or 640)**
 -  **Supports Python 3.10 and above** 
 -  **Runs on Windows 10, Linux** 
 -  **Quantization using training dataset images** 
@@ -137,8 +137,10 @@ python app.py
 This tool can convert ONNX models into the kmodel format specifically used by HUSKYLENS 2. And ONNX models can be derived from YOLOv8N and YOLO11N models.
 Here are two methods of training two YOLO models, converting them into ONNX models and ultimately generating the HUSKYLENS 2 installation package.
 Users can choose either one at will.
+When using method 2 train your own yolo model, the imgsz parameter can be 320 or 640
 
 ### 1. Create the installation package for HUSKYLENS 2 based on Mind+
+
 This method use [Mind+ V2](https://mindplus.cc/en/) to train the yolo mode, and convert the yolo model into onnx model in Mind+ V2. 
 For the detail description, please visit  [No-Code Model Training and Deployment-Mind+ Local](https://wiki.dfrobot.com/sen0638/docs/22604#1.2%20No-Code%20Model%20Training%20and%20Deployment-Mind%2B%20Local) in HUSKYLENS 2 wiki.
 
@@ -162,12 +164,12 @@ The general process is as follows:
 
 ###  2. Create HUSKYLENS 2 installation package based on custom data
 
-For experienced users familiar with YOLO dataset structure. No further explanation will be given regarding the format of the dataset.
+This method need users to prepare their own yolo dataset. And this method is for the experienced users familiar with YOLO dataset structure. No further explanation will be given regarding the format of the dataset.<br/>
 You can visit [Code-Trained Model Deployment to HUSKYLENS 2](https://wiki.dfrobot.com/sen0638/docs/22604#1.3%20Code-Trained%20Model%20Deployment%20to%20HUSKYLENS%202) on HUSKYLENS 2 wiki. Use the sample dataset provided on the wiki and refer to the tutorial link for training the YOLO model and converting it to an ONNX model.
 
 Users who train the model using this method need to confirm the existence of two files before proceeding to the next step:
 1. ONNX model
-2. Dataset folder
+2. YOLO Dataset folder
 
 #### Make a folder required for converting the kmodel model to ONNX format
 
@@ -211,6 +213,19 @@ Classification Model
                 └── ......
             └── ...
 ```
+
+#### Run onnx2kmodel, perform onnx to kmodel transformation
+
+The general process is as follows:
+* On the top-level folder of this project. Open the terminal and execute "python app.py"
+* Mode selection: Choose Custom
+* User-defined directory, select the previously organized "user_dir" folder
+* Choose your own icon
+* Input the application names in multiple languages (required)
+* Input the title names in multiple languages (required)
+* Set a reasonable default output threshold
+* Click "Save Configuration" to set it as the default configuration for opening the GUI tool again (optional)
+* Click the "Convert & Package" button. After a few minutes (depending on your computer performance), a zip format installation package will be generated in the same directory as app.py (note: do not change the name of this installation package)
 
 ## HuskyLens V2 Installation Package
 

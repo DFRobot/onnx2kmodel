@@ -6,7 +6,7 @@
 
 ## 功能特性
 
--  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型**
+-  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型(imgsz 320 或 640)**
 -  **支持python 3.10 及以上环境** 
 -  **可以运行在win10 linux mac多系统上** 
 -  **使用训练集的图片量化** 
@@ -134,7 +134,8 @@ python app.py
 ## onnx2kmodel使用说明
 该工具可将onnx模型转化为二哈识图2专用的kmodel模型格式。而onnx模型可由yolov8n, yolo11n模型转化而来。<br/>
 以下为两个训练yolo模型，转化为onnx模型最终生成二哈识图安装包的过程。<br/>
-使用者可任选其一
+使用者可任选其一<br/>
+当使用方法2自行训练yolo模型时，imgsz参数可选320或者640两种规格。
 
 ### 1. 基于Mind+制作二哈安装包
 此方法使用[Mind+ V2](https://mindplus.cc/download.html)来训练yolo模型，并且在Mind+中直接转化为onnx模型<br/>
@@ -160,12 +161,14 @@ python app.py
 
 ###  2. 基于自定义数据制作二哈安装包
 
+此方法需要用户自行准备yolo格式的数据集<br/>
 假设使用此功能的用户比较了解yolo数据集，这里不对数据集的格式做更多解释
-可访问[二哈识图2 Python代码训练模型离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.3%20Python%20%E4%BB%A3%E7%A0%81%E8%AE%AD%E7%BB%83%E6%A8%A1%E5%9E%8B%E5%B9%B6%E9%83%A8%E7%BD%B2(%E6%9C%AC%E5%9C%B0))，使用我们提供的示例数据集，并参考该链接教程进行yolo模型训练以及onnx模型转化。
+可访问[二哈识图2 Python代码训练模型离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.3%20Python%20%E4%BB%A3%E7%A0%81%E8%AE%AD%E7%BB%83%E6%A8%A1%E5%9E%8B%E5%B9%B6%E9%83%A8%E7%BD%B2(%E6%9C%AC%E5%9C%B0))。<br/>
+使用我们提供的示例数据集，并参考该链接教程进行yolo模型训练以及onnx模型转化。
 
 使用该方式训练模型的用户，执行下一步前需要确认有两个文件：
 1. onnx模型
-2. 数据集文件夹
+2. yolo数据集文件夹
 
 
 ##### 制作onnx转换kmodel模型所需文件夹
@@ -216,7 +219,7 @@ python app.py
 #### 启动onnx2kmodel，进行onnx模型到kmodel模型转换
 
 简要流程如下：
-* 该项目顶层文件执行python app.py
+* 该项目顶层文件夹，开启终端执行python app.py
 * 模式选择 选择自定义
 * 用户自定义目录，选择前一步整理好的user_dir文件夹
 * 选择自己的图标
