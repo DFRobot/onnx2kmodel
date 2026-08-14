@@ -6,7 +6,7 @@
 
 ## 功能特性
 
--  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型**
+-  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型(imgsz 320 或 640)**
 -  **支持python 3.10 及以上环境** 
 -  **可以运行在win10 linux mac多系统上** 
 -  **使用训练集的图片量化** 
@@ -131,10 +131,24 @@ export_weight_range_by_channel = false
 python app.py
 ```
 
-## GUI工具使用流程
+## onnx2kmodel使用说明
+该工具可将onnx模型转化为二哈识图2专用的kmodel模型格式。而onnx模型可由yolov8n, yolo11n模型转化而来。<br/>
+以下为两个训练yolo模型，转化为onnx模型最终生成二哈识图安装包的过程。<br/>
+使用者可任选其一<br/>
+当使用方法2自行训练yolo模型时，imgsz参数可选320或者640两种规格。
 
-### 基于Mind+制作二哈安装包
+### 1. 基于Mind+制作二哈安装包
+此方法使用[Mind+ V2](https://mindplus.cc/download.html)来训练yolo模型，并且在Mind+中直接转化为onnx模型<br/>
+可访问[二哈识图2 Mind+训练模型并离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.2%20Mind%2B%E6%97%A0%E4%BB%A3%E7%A0%81%E6%96%B9%E5%BC%8F%E8%AE%AD%E7%BB%83%E5%B9%B6%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%9E%8B(%E6%9C%AC%E5%9C%B0))以查看详细说明。
 
+使用该方式训练模型的用户，执行下一步前需要确认有两个压缩包：
+1. 从Mind+导出含有onnx模型的.zip压缩包
+2. 数据集的.zip压缩包
+
+#### 启动onnx2kmodel，进行onnx模型到kmodel模型转换
+
+简要流程如下：
+* 该项目顶层文件执行python app.py
 * 模式选择 选择MindPlus
 * 选择Mindplus导出的模型包
 * 选择MindPlus导出的数据集包
@@ -145,13 +159,25 @@ python app.py
 * 点击保存配置，可以作为再次打开gui工具的默认配置（可选）
 * 点击转换&打包按钮，等待几分钟（依据你的电脑性能）后，app.py的同级目录会生成一个zip格式的安装包（注意不要更改这个安装包的名字）
 
-###  基于自定义数据制作二哈安装包
+###  2. 基于自定义数据制作二哈安装包
 
+此方法需要用户自行准备yolo格式的数据集<br/>
 假设使用此功能的用户比较了解yolo数据集，这里不对数据集的格式做更多解释
+可访问[二哈识图2 Python代码训练模型离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.3%20Python%20%E4%BB%A3%E7%A0%81%E8%AE%AD%E7%BB%83%E6%A8%A1%E5%9E%8B%E5%B9%B6%E9%83%A8%E7%BD%B2(%E6%9C%AC%E5%9C%B0))。<br/>
+使用我们提供的示例数据集，并参考该链接教程进行yolo模型训练以及onnx模型转化。
 
-#### 目录结构
+使用该方式训练模型的用户，执行下一步前需要确认有两个文件：
+1. onnx模型
+2. yolo数据集文件夹
 
-用户在app.py的同级目录下，创建如下文件结构
+
+##### 制作onnx转换kmodel模型所需文件夹
+
+获得onnx模型后，用户需在app.py的同级目录下，创建如下文件结构。
+其中：
+- **best.onnx**：该文件是上一步由yolo模型转化生成的onnx模型
+- **images**：该文件夹包含了原始数据集
+- **data.yaml**：该文件可在[examples_yaml](/examples_yaml/)文件夹中找到示例。其中的names标签，需要根据自己模型的规格进行修改。其他参数默认不动
 
 检测和分割模型
 ```shell
@@ -159,7 +185,6 @@ python app.py
 └── user_dir
     ├── best.onnx
     ├── data.yaml
-    ├── model.yaml
     └── images
         └── train
             ├── capture_f845db40.png
@@ -178,7 +203,6 @@ python app.py
 └── user_dir
     ├── best.onnx
     ├── data.yaml
-    ├── model.yaml
     └── images
         └── train
             └── cls1    		
@@ -191,6 +215,19 @@ python app.py
                 └── ......
             └── ...
 ```
+
+#### 启动onnx2kmodel，进行onnx模型到kmodel模型转换
+
+简要流程如下：
+* 该项目顶层文件夹，开启终端执行python app.py
+* 模式选择 选择自定义
+* 用户自定义目录，选择前一步整理好的user_dir文件夹
+* 选择自己的图标
+* 输入多语言的应用名称（必填）
+* 输入多语言的title名称（必填）
+* 设置合理的默认输出阈值
+* 点击保存配置，可以作为再次打开gui工具的默认配置（可选）
+* 点击转换&打包按钮，等待几分钟（依据你的电脑性能）后，app.py的同级目录会生成一个zip格式的安装包（注意不要更改这个安装包的名字）
 
 ## 二哈2上安装应用
 
