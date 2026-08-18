@@ -216,6 +216,12 @@ def _get_input_shape(onnx_path):
 def main(argv=None):
     """命令行入口：供 python convertor.py 直接调用，也供 PyInstaller 打包后的
     主程序以 --run-convertor 参数在子进程中调用。返回进程退出码。"""
+    # 子进程的输出由 app.py 按 UTF-8 解码；Windows 中文系统下 stdout 默认是 GBK，
+    # 统一强制为 UTF-8，否则 FINAL_ZIP 里的中文路径会变成乱码
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="Convert ONNX to KModel and package the output zip.")
     parser.add_argument("onnx_file")
     parser.add_argument("kmodel_file")

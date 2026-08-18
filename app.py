@@ -655,8 +655,7 @@ class ModelExportApp(QWidget):
         self.threshold_label.setText(f"{f_value:.2f}")
 
     def select_zip(self,file_type):
-        file, _ = QFileDialog.getOpenFileName(self, lang["select_zip_file"][lang_id], "", "ZIP files (*.zip)",
-                                              options=QFileDialog.DontUseNativeDialog)
+        file, _ = QFileDialog.getOpenFileName(self, lang["select_zip_file"][lang_id], "", "ZIP files (*.zip)")
         if file:
             if file_type == "model":
                 self._conf["mindplus_options"]["model_zip"] = file
@@ -666,15 +665,13 @@ class ModelExportApp(QWidget):
                 self.zip_dataset_label.setText(file)
 
     def select_user_dir(self):
-        directory = QFileDialog.getExistingDirectory(self, lang["select_custom_directory"][lang_id], "",
-                                                     options=QFileDialog.DontUseNativeDialog)
+        directory = QFileDialog.getExistingDirectory(self, lang["select_custom_directory"][lang_id], "")
         if directory:
             self._conf["user_options"]["user_dir"] = directory
             self.user_dir_label.setText(directory)
 
     def select_icon(self):
-        file, _ = QFileDialog.getOpenFileName(self, lang["select_icon"][lang_id], "", "PNG files (*.png)",
-                                              options=QFileDialog.DontUseNativeDialog)
+        file, _ = QFileDialog.getOpenFileName(self, lang["select_icon"][lang_id], "", "PNG files (*.png)")
         if file:
             img = Image.open(file)
             img = img.convert('RGBA')
