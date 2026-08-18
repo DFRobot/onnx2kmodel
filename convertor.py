@@ -140,7 +140,7 @@ def gen(_dir):
         if not f.is_file():
             continue
         
-        img_path = str(f)   # �ؼ�����Ҫ f.name
+        img_path = str(f)   # 关键：不要 f.name
 
         data = np.fromfile(img_path, dtype=np.uint8)
         templ = cv2.imdecode(data, cv2.IMREAD_COLOR)
@@ -172,3 +172,71 @@ def make(onnx_file, kmodel_file, dataset, toml_file, input_shape):
             f.write(tomlkit.dumps(conf))
     c = Convertor(onnx_file, kmodel_file, toml_file, [npcalib])
     c.convert()
+
+
+def _zip_with_md5(source_dir="model_output/", zip_dir="./", base_name="app"):
+    import zipfile
+    import hashlib
+    import shutil
+    temp_zip_path = os.path.join(zip_dir, f"{base_name}.zip")
+    with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(source_dir):
+            for file in files:
+                abs_path = os.path.join(root, file)
+                rel_path = os.path.relpath(abs_path, source_dir)
+                zipf.write(abs_path, arcname=rel_path)
+    md5_hash = hashlib.md5()
+    with open(temp_zip_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            md5_hash.update(chunk)
+    md5_str = md5_hash.hexdigest()[:4]
+    final_zip_path = os.path.join(zip_dir, f"{base_name}.{md5_str}.zip")
+    shutil.move(temp_zip_path, final_zip_path)
+    print(f"pack done: {final_zip_path}", flush=True)
+    return final_zip_path
+
+
+def _get_input_shape(onnx_path):
+    import onnx
+    model = onnx.load(onnx_path)
+    input_shapes = {}
+    for tensor in model.graph.input:
+        shape = []
+        tensor_type = tensor.type.tensor_type
+        if tensor_type.HasField('shape'):
+            for dim in tensor_type.shape.dim:
+                if dim.HasField('dim_value'):
+                    shape.append(dim.dim_value)
+                else:
+                    shape.append(None)
+        input_shapes[tensor.name] = shape
+    return input_shapes
+
+
+def main(argv=None):
+    """命令行入口：供 python convertor.py 直接调用，也供 PyInstaller 打包后的
+    主程序以 --run-convertor 参数在子进程中调用。返回进程退出码。"""
+    parser = argparse.ArgumentParser(description="Convert ONNX to KModel and package the output zip.")
+    parser.add_argument("onnx_file")
+    parser.add_argument("kmodel_file")
+    parser.add_argument("dataset")
+    parser.add_argument("toml_file")
+    parser.add_argument("output_zip")
+    args = parser.parse_args(argv)
+
+    shapes = _get_input_shape(args.onnx_file)
+    if len(shapes) != 1:
+        print(f"[ERROR] unsupported input count: {len(shapes)}", flush=True)
+        return 1
+    shape = list(shapes.values())[0]
+    print(f"input_shape={shape}", flush=True)
+
+    make(args.onnx_file, args.kmodel_file, args.dataset, args.toml_file, shape)
+
+    final_zip_path = _zip_with_md5(base_name=args.output_zip)
+    print(f"FINAL_ZIP={final_zip_path}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

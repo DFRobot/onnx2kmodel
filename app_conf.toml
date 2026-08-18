@@ -1,17 +1,28 @@
 [comm]
-mode = "MindPlus"
-icon_file = ""
-app_name_EN = "Cell\\nRecognition"
-app_name_zh_CN = "细胞识别"
-app_name_zh_TW = "細胞識別"
-title_name_EN = "Cell Recognition"
-title_name_zh_CN = "细胞识别"
-title_name_zh_TW = "細胞識別"
+mode = "User"
+icon_file = "F:/K230/onnx2kmodel/icon.png"
 det_threshold = 0.6
+app_name_en = "Cell\\nRecognition"
+app_name_zh-CN = "细胞识别"
+app_name_zh-TW = "細胞識別"
+app_name_fr = "Reconnaissance\\ndes cellules"
+app_name_ko = "세포\\n인식"
+app_name_es = "Reconocimiento\\nde células"
+app_name_pt-BR = "Reconhecimento\\nde células"
+app_name_ja = "細胞認識"
+title_name_en = "Cell\\nRecognition"
+title_name_zh-CN = "细胞识别"
+title_name_zh-TW = "細胞識別"
+title_name_fr = "Reconnaissance des cellules"
+title_name_ko = "세포인식"
+title_name_es = "Reconocimiento de células"
+title_name_pt-BR = "Reconhecimento de células"
+title_name_ja = "細胞認識"
+user_added_langs = ["zh-CN", "en", "zh-TW"]
 
 [mindplus_options]
 dataset_zip = ""
 model_zip = ""
 
 [user_options]
-user_dir = ""
+user_dir = "F:/K230/dateset/model_input_det"
