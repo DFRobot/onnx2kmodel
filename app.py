@@ -867,13 +867,24 @@ class ModelExportApp(QWidget):
         self._add_lang_row(lang_key, app_text)
         self._refresh_lang_combos()
 
-    def save_conf(self):
-        # 保存当前界面语言输入
+    def _sync_app_names(self):
+        """同步界面输入到 app_name_by_lang 并补全所有语言：
+        当前语言输入框和 user_added_langs 中的额外语言行使用各自输入值，
+        其余语言（或值为空的语言）一律与默认（系统）语言保持一致。"""
         current_key = LANG_KEYS[self._current_app_name_lang_id]
-        self.app_name_by_lang[current_key] = self.app_name_A.toPlainText()
-        # 保存额外语言输入
+        self.app_name_by_lang[current_key] = self.app_name_A.toPlainText().replace("\\n", "\n")
         for key, widgets in self.app_name_extra_rows.items():
-            self.app_name_by_lang[key] = widgets["line_edit"].toPlainText()
+            self.app_name_by_lang[key] = widgets["line_edit"].toPlainText().replace("\\n", "\n")
+        system_key = self._get_system_lang_key()
+        default_name = self.app_name_by_lang.get(system_key) or self.app_name_by_lang[current_key]
+        visible_keys = set(self.user_added_langs) | {current_key}
+        for key in LANG_KEYS:
+            if key not in visible_keys or not self.app_name_by_lang.get(key):
+                self.app_name_by_lang[key] = default_name
+
+    def save_conf(self):
+        # 同步界面输入并补全所有语言（与导出时 desc.json 使用同一逻辑）
+        self._sync_app_names()
         # 写入 app_name_<key> 和 title_name_<key>
         for key in LANG_KEYS:
             name_value = self.app_name_by_lang.get(key, "")
@@ -1030,10 +1041,8 @@ class ModelExportApp(QWidget):
         app_name_current_value = self.app_name_A.toPlainText().replace("\\n", "\n")
         application = clean_name(self.app_name_A.toPlainText())
 
-        # 同步当前语言和额外语言输入到 app_name_by_lang
-        self.app_name_by_lang[current_key] = app_name_current_value
-        for key, widgets in self.app_name_extra_rows.items():
-            self.app_name_by_lang[key] = widgets["line_edit"].toPlainText().replace("\\n", "\n")
+        # 同步界面输入并补全所有语言：未添加到 user_added_langs 的语言与默认语言一致
+        self._sync_app_names()
 
         conf_data = copy.deepcopy(conf_template)
         conf_data["conf"]["application"] = application
@@ -1083,6 +1092,9 @@ class ModelExportApp(QWidget):
         onnx_path = os.path.join(self.model_dataset_dir, "best.onnx")
         kmodel_path = os.path.join("model_output", conf_data["conf"]["model_info"][0]["filename"])
         output_zip = conf_data["conf"]["application"]
+
+        # 把本次生成的多语言名称等配置同步保存到 app_conf.toml（与 desc.json 同一逻辑）
+        self.save_conf()
 
         # 用独立进程跑转换，避免 nncase 编译占用 GIL 导致 UI 卡死
         self._convert_output = ""
