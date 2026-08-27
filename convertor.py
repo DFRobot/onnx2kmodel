@@ -1,14 +1,34 @@
 #!/usr/bin/env python3
 
-import subprocess
 import argparse
-import nncase
+import importlib.util
 import tomlkit
 import sys
 import os
 import cv2
 import numpy as np
 from pathlib import Path
+
+
+def _setup_nncase_environment():
+    """定位当前实际使用的 nncase，不依赖系统 Python 或 pip。"""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        location = os.path.abspath(sys._MEIPASS)
+    else:
+        nncase_spec = importlib.util.find_spec("nncase")
+        if nncase_spec is None or not nncase_spec.origin:
+            raise RuntimeError("Unable to locate the nncase package")
+        package_dir = os.path.dirname(os.path.abspath(nncase_spec.origin))
+        location = os.path.dirname(package_dir)
+
+    path_entries = os.environ.get("PATH", "").split(os.pathsep)
+    if location not in path_entries:
+        os.environ["PATH"] = os.pathsep.join([entry for entry in path_entries + [location] if entry])
+    os.environ["NNCASE_PLUGIN_PATH"] = location
+
+
+_setup_nncase_environment()
+import nncase
 
 swapRB = False
 preprocess = False
@@ -18,19 +38,12 @@ input_type = np.uint8
 templs_shape = 640
 
 
-# setup env
-result = subprocess.run(["pip", "show", "nncase"], capture_output=True)
-line_break = "\n"
-if sys.platform == "win32":
-    line_break = "\r\n"
-location_s = [i for i in result.stdout.decode().split(
-    line_break) if i.startswith("Location:")]
-location = location_s[0].split(": ")[1]
-if "PATH" in os.environ:
-    os.environ["PATH"] += os.pathsep + location
-else:
-    os.environ["PATH"] = location
-os.environ["NNCASE_PLUGIN_PATH"] = location
+def _progress_step(step):
+    print(f"PROGRESS_STEP={step}", flush=True)
+
+
+def _progress_done(step):
+    print(f"PROGRESS_DONE={step}", flush=True)
 
 
 class Convertor(nncase.Compiler):
@@ -40,7 +53,8 @@ class Convertor(nncase.Compiler):
         _conf: map
         with open(conf, 'r') as f:
             _conf = tomlkit.parse(f.read())
-            
+
+        _progress_step(3)
         super().__init__(self._set_cpl_opt(_conf))
         with open(model, 'rb') as f:
             _model = Path(model)
@@ -48,13 +62,20 @@ class Convertor(nncase.Compiler):
                 self.import_onnx(f.read(), nncase.ImportOptions())
             else:
                 assert False, print('not support model type')
+        _progress_done(3)
+        _progress_step(4)
         self.use_ptq(self._set_ptq_opt(_conf, calib))
+        _progress_done(4)
         self.kmodel = kmodel
 
     def convert(self):
+        _progress_step(5)
         self.compile()
+        _progress_done(5)
+        _progress_step(6)
         with open(self.kmodel, 'wb') as f:
             f.write(self.gencode_tobytes())
+        _progress_done(6)
 
     def _set_cpl_opt(self, conf: map):
         compile_options = nncase.CompileOptions()
@@ -135,10 +156,10 @@ def gen(_dir):
 
 def gen(_dir):
     path = Path(_dir)
+    files = [f for f in path.rglob('*') if f.is_file()]
+    total = len(files)
 
-    for f in path.rglob('*'):
-        if not f.is_file():
-            continue
+    for current, f in enumerate(files, 1):
         
         img_path = str(f)   # 关键：不要 f.name
 
@@ -147,19 +168,23 @@ def gen(_dir):
 
         if templ is None:
             print(f"[WARN] read failed: {img_path}")
+            print(f"PROGRESS_COUNT=2|{current}|{total}", flush=True)
             continue
 
         templ = process_img(templ)
+        print(f"PROGRESS_COUNT=2|{current}|{total}", flush=True)
         yield templ
 
 def make(onnx_file, kmodel_file, dataset, toml_file, input_shape):
     global templs_shape
     templs_shape = input_shape[2]
     calib = []
+    _progress_step(2)
     for t in gen(dataset):
         calib.append(t)
 
     npcalib = np.array(calib).astype(np.uint8)
+    _progress_done(2)
 
     #print("calib shape", npcalib.shape)
     print("toml_file  ",toml_file)
@@ -228,6 +253,7 @@ def main(argv=None):
     parser.add_argument("dataset")
     parser.add_argument("toml_file")
     parser.add_argument("output_zip")
+    parser.add_argument("output_dir", nargs="?", default=".")
     args = parser.parse_args(argv)
 
     shapes = _get_input_shape(args.onnx_file)
@@ -237,9 +263,13 @@ def main(argv=None):
     shape = list(shapes.values())[0]
     print(f"input_shape={shape}", flush=True)
 
+    print("STAGE=CONVERSION", flush=True)
     make(args.onnx_file, args.kmodel_file, args.dataset, args.toml_file, shape)
 
-    final_zip_path = _zip_with_md5(base_name=args.output_zip)
+    print("STAGE=PACKAGING", flush=True)
+    _progress_step(7)
+    final_zip_path = _zip_with_md5(zip_dir=args.output_dir, base_name=args.output_zip)
+    _progress_done(7)
     print(f"FINAL_ZIP={final_zip_path}", flush=True)
     return 0
 

@@ -1,122 +1,283 @@
-# ONNX 转 二哈2安装包 GUI工具
+# HUSKYLENS 2 模型安装包生成器
 
-将onnx模型量化为kmodel模型，再将其打包为二哈2的zip安装包
+将受支持的 Ultralytics ONNX 模型转换为 K230 `.kmodel`，并生成可在 HUSKYLENS 2 中本地安装的 ZIP 安装包。
 
-* [English Version](./README.md)
+[English](./README.md) 
 
-## 功能特性
+## 功能概览
 
--  **支持yolov8n yolo11n 目标检测 语义分割 物体分类 三种模型(imgsz 320 或 640)**
--  **支持python 3.10 及以上环境** 
--  **可以运行在win10 linux mac多系统上** 
--  **使用训练集的图片量化** 
--  **使用uint8量化** 
+- 支持 `YOLOv8n`、`YOLO11n`。
+- 支持检测、分类、分割任务。
+- 支持 `224 × 224`、`320 × 320`、`640 × 640` 输入尺寸。
+- 数据来源支持 YOLO 和 MindPlus，默认选择 YOLO。
+- 自动检查并整理 ONNX、数据集配置、训练图片和标签。
+- 从训练集均衡抽取校准图片，使用 nncase 执行 UINT8 量化。
+- 支持 English、简体中文、繁體中文、Français、한국어、Español、Português (Brasil)、日本語八种界面及应用名称。
+- 转换、打包在独立进程中执行，界面实时显示当前阶段。
+- 支持选择安装包输出目录并安全管理临时文件。
 
-## 安装
+注意：不可对转换好的ZIP文件做任何修改，包括更改ZIP内部文件内容，或修改文件名，否则都将导致HUSKYLENS 2无法识别安装包。
 
-### 克隆工程
+## 环境要求
 
-```
-git clone https://github.com/DFRobot/onnx2kmodel
-```
+### Windows
 
-### 安装依赖
+- Python 3.10 或更高版本；本项目开发测试使用 Python 3.12。
+- [.NET SDK 7.0.410](https://dotnet.microsoft.com/en-us/download/dotnet/7.0)。
 
-#### windows
+安装 Python 依赖：
 
-下载并安装dotnet7.0
-
-https://downloadcd.dfrobot.com.cn/HUSKYLENS/dotnet-sdk-7.0.410-win-x64.exe
-
-确保电脑安装了Python3.10或以上版本，命令行运行
-
-```shell
-pip install  -r requirements.txt
-pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+```powershell
+pip install -r requirements.txt
+pip install nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 ```
 
-#### Linux
+如果使用仓库提供的 EXE，用户不需要另外安装 Python，但仍需安装程序依赖的 .NET 环境。
 
-安装 dotnet7.0
+### Linux
 
-Ubuntu（测试版本22.04）
+图形界面和 nncase 依赖需由使用者自行验证。Ubuntu 可先安装 .NET 7：
 
-```shell
+```bash
 sudo apt update
 sudo apt install -y dotnet-sdk-7.0
+pip install -r requirements.txt
+pip install nncase-kpu
 ```
 
-安装依赖包
+macOS 尚未完成验证。
 
-```shell
-pip install  -r requirements.txt
-pip install  nncase-kpu
+## 启动
+
+源码运行：
+
+```powershell
+python app.py
 ```
 
-#### Mac
+默认状态：
 
+- 界面语言为 English，可在顶部切换。
+- 数据来源默认为 YOLO。
+- 默认阈值为 `0.60`，步进为 `0.02`。
+
+## 使用流程
+
+1. 选择界面语言。
+2. 选择安装包输出目录。
+3. 选择数据来源（默认 YOLO）。
+4. YOLO 分别选择数据集文件夹和 ONNX 模型；MindPlus 分别选择模型包（.zip）和数据集包（.zip）。
+5. 检查自动识别出的模型信息；无法可靠识别的项目需手动选择。
+6. 输入应用名称，可按 Enter 键添加换行。
+7. 按需添加其他语言、更换图标和调整默认阈值。
+8. 状态栏显示“准备工作已完成，可以开始”后，点击“开始”。
+10. 在完成弹窗中查看安装包路径；关闭弹窗后程序自动清除本次任务缓存。
+
+## 数据来源
+
+### YOLO：检测与分割
+
+YOLO 模式需要分别选择一个数据集文件夹和一个 `.onnx` 模型文件。数据集文件夹根层必须包含：
+
+- 一个 `.yaml` 或 `.yml` 数据集配置文件。
+
+配置文件必须包含非空的 `train` 和 `names`；`path` 可以省略。省略 `path` 时，程序以用户选择的数据集文件夹（YAML 所在根目录）为基准，通过 `train` 定位训练图片；存在 `path` 时使用 `path + train`。随后将训练路径中最后一个 `images` 替换为 `labels` 定位标签。
+
+数据集文件夹示例：
+
+```text
+dataset_dir
+├── dataset.yaml
+└── dataset
+    ├── images
+    │   └── train
+    │       ├── image_001.jpg
+    │       └── ...
+    └── labels
+        └── train
+            ├── image_001.txt
+            └── ...
 ```
-暂未测试
+
+data.yaml示例：
+
+```yaml
+path: ./dataset      # 可选
+train: images/train
+names:
+  0: person
+  1: car
 ```
 
+数据集文件夹根层存在多个 .yaml文件时，会要求只保留一个正确文件。
 
+### YOLO：分类
+
+分类任务允许不提供 YAML。ONNX 能明确识别为分类模型时，可直接使用标准目录：
+
+```text
+dataset_dir
+├── train
+│   ├── class_1
+│   │   ├── image_001.jpg
+│   │   └── ...
+│   └── class_2
+│       ├── image_002.jpg
+│       └── ...
+└── val                       # 可选，转换不读取
+    └── ...
+```
+
+程序按类别目录名称排序生成 `data.yaml`。如果 ONNX 能确认分类输出数量，程序会与数据集类别数量核对，数量不一致时停止准备。程序不比较 ONNX 元数据与数据集中的类别名称和顺序，类别名称以数据集 YAML 或类别目录为准。无法从 ONNX 确认类别数量时允许继续，但会提示用户确认数据集类别与训练时一致。
+
+如果分类目录本身提供了一个有效 YAML，程序仍优先使用该配置的类别顺序和训练路径；未提供 `path` 时直接基于 `train` 定位。
+
+### MindPlus 
+
+需要选择：
+
+1. MindPlus 导出的模型包（.zip）。
+2. MindPlus 导出的数据集包（.zip）。
+
+## ONNX 模型信息识别
+
+YOLO 数据源界面显示模型版本、任务类型和输入尺寸：
+
+- 模型版本：未知、YOLOv8n、YOLO11n。
+- 任务类型：未知、检测、分类、分割。
+- 输入尺寸：未知、224 × 224、320 × 320、640 × 640。
+
+程序采用保守识别策略：
+
+1. 优先读取 ONNX 的 `description`、`model_name`、`task`、`head`、`imgsz`、`input_shape` 等元数据。
+2. 元数据没有尺寸时，读取 ONNX 输入张量。
+3. 元数据没有任务类型时，结合 ONNX 输出结构和少量数据集结构/标签证据。
+4. 多项证据冲突或不足时保持“未知”，不强行猜测。
+5. 自动确认的项目会锁定；无法确认的项目允许用户手动选择。
+6. 明确识别为 YOLOv8s、YOLO11s 等不支持型号，或输入尺寸不受支持时，停止准备。
+
+## 量化校准图片抽取
+
+点击“开始”后从训练集抽取校准图片：
+
+- 类别不超过 500：覆盖全部类别，总量最多 500 张，每类最多 10 张并均衡分配。
+- 类别超过 500：每类优先 1 张，为覆盖全部类别可超过 500 张。
+- 图片随机抽取，确保抽取的图片之间会有较大差异。
+- 一张多类别图片可同时覆盖多个类别。
+
+如果某个类别没有可用图片，程序会显示具体类别和路径，不会直接进入模型转换。
+
+## 应用名称、预览和图标
+
+- 应用名称为空时，默认显示 `App Name`占位。
+- 手动换行：输入框输入应用名称时，按 Enter 会插入换行标记。
+- 自动换行：英文每行最多约 12 个字母，中文每行最多约 6 个文字，最多显示两行。
+- 用户可添加八种语言中的其他语言名称；未单独填写的语言使用当前默认名称补齐。
+- 应用图标建议使用正方形、透明背景、白色线条的图标，这样会与HUSKYLESN 2的原生图标具有较强的一致性，也支持使用彩色图标。图标尺寸为60x60像素，若选择了其他尺寸的图片，会自动处理为60x60。
+
+## 输出与缓存
+
+最终 ZIP 输出到用户选择的目录，命名格式为：
+
+```text
+应用名-模型版本-任务类型-输入尺寸.校验码.zip
+```
+
+例如：
+
+```text
+Cat-YOLO11n-cls-320.a1b2.zip
+```
+
+临时目录位于：
+
+```text
+用户输出目录/HUSKYLENS 2 Package Generator Temp Files
+├── model_input
+├── model_output
+└── dump
+```
+
+- 在model_input中可以查看用于量化校准所抽取的图片。
+- 切换输出目录时，会删除旧输出目录中的临时文件。
+- 每次重新准备数据会重建 `model_input`。
+- 每次转换前会重建 `model_output` 和 `dump`。
+- 完成弹窗关闭后自动安全清除临时缓存，不再询问用户；最终 ZIP 不会被删除。
+
+## 在 HUSKYLENS 2 中安装
+
+1. 将生成的 ZIP 复制到 HUSKYLENS 2 弹出的U盘如下路径中：
+
+   ```text
+   Huskylens\storage\installation_package
+   ```
+
+2. 在HUSKYLENS 2 上打开“模型安装 / Model Installation”。
+3. 选择“本地安装 / Local Installation”，即可安装完成。
 
 ## 配置文件
 
-#### 应用配置文件 app_conf.toml
-
-点击ui页面的 保存配置 ，可以自动更新这个toml文件，成为再次打开ui页面的默认配置
+### 应用配置文件 app_conf.toml
 
 ```toml
 [comm]
-mode = "MindPlus"    #User  MindPlus表示加载MindPlus训练出的模型和导出的数据集   User表示用户配置自己的文件结构
-icon_file = ""       #打包二哈安装包必备的图标，png格式，背景透明色
-app_name_EN = "Cell\\nRecognition"  #安装时显示的英文名称，\n表示换行，将这个名字换成自己的应用名称
-app_name_zh_CN = "细胞识别"			  #安装时显示的简体名称，\n表示换行，将这个名字换成自己的应用名称
-app_name_zh_TW = "細胞識別"			  #安装时显示的繁体名称，\n表示换行，将这个名字换成自己的应用名称
-title_name_EN = "Cell Recognition"  #二哈打开应用时，title显示的英文名称
-title_name_zh_CN = "细胞识别"         #二哈打开应用时，title显示的简体中文名称
-title_name_zh_TW = "細胞識別"         #二哈打开应用时，title显示的繁体中文名称
-det_threshold = 0.6                 #默认检测阈值 范围 0 - 1
+mode = "User"               # 数据来源：User 表示 YOLO，MindPlus 表示 MindPlus
+icon_file = ""              # 应用图标路径；启动时默认使用项目内置 icon.png
+det_threshold = 0.6          # 默认阈值，界面显示为 0.60
+app_name_en = ""            # English 应用名称，\\n 表示换行
+app_name_zh-CN = ""         # 简体中文应用名称
+app_name_zh-TW = ""         # 繁體中文应用名称
+app_name_fr = ""            # Français 应用名称
+app_name_ko = ""            # 한국어 应用名称
+app_name_es = ""            # Español 应用名称
+app_name_pt-BR = ""         # Português (Brasil) 应用名称
+app_name_ja = ""            # 日本語应用名称
+title_name_en = ""          # English 标题名称
+title_name_zh-CN = ""       # 简体中文标题名称
+title_name_zh-TW = ""       # 繁體中文标题名称
+title_name_fr = ""          # Français 标题名称
+title_name_ko = ""          # 한국어标题名称
+title_name_es = ""          # Español 标题名称
+title_name_pt-BR = ""       # Português (Brasil) 标题名称
+title_name_ja = ""          # 日本語标题名称
+user_added_langs = []        # 用户添加的其他应用名称语言
 
 [mindplus_options]
-dataset_zip = ""   #MindPlus导出的数据集文件，zip格式
-model_zip = ""     #MindPlus导出的模型文件，zip格式
+dataset_zip = ""            # MindPlus 数据集包（.zip）
+model_zip = ""              # MindPlus 模型包（.zip）
 
 [user_options]
-user_dir = ""   #用户模式下，用户村子自定义文件的目录
-
+user_dir = ""               # YOLO 数据集文件夹
+onnx_file = ""              # YOLO ONNX 模型文件
 ```
 
+### 模型配置文件 kmodel_conf.toml
 
-
-#### 模型配置文件 kmodel_conf.toml
-
-参考佳楠nncase相关文档，初级用户可不更改此文件，直接使用默认配置
+`kmodel_conf.toml` 保存 nncase 编译和 UINT8 量化参数。普通用户建议保持默认值。转换时程序会根据所选 ONNX 模型自动设置实际输入尺寸，因此文件中的 `input_shape` 只是默认模板值。
 
 ```toml
 [compile_options]
-target = "k230"  # "cpu"
+target = "k230"             # 编译目标
 dump_ir = false
 dump_asm = false
 dump_dir = "./dump"
 input_file = ""
 preprocess = true
-input_type = "uint8"  # "uint8", "float32"
-input_shape = [1, 3, 320, 320]
+input_type = "uint8"
+input_shape = [1, 3, 640, 640]
 input_range = [0, 1]
-input_layout = "NCHW"  # "NHWC"
+input_layout = "NCHW"
 swapRB = false
 mean = [0, 0, 0]
 std = [1, 1, 1]
 letterbox_value = 0
-output_layout = "NCHW"  # "NHWC"
+output_layout = "NCHW"
 
 [ptq_options]
-calibrate_method = "NoClip"  # "Kld", "NoClip"
+calibrate_method = "NoClip"
 finetune_weights_method = "NoFineTuneWeights"
-quant_type = "uint8"  # "float32", "int8", "int16"
-w_quant_type = "uint8"  # "float32", "int8", "int16"
+quant_type = "uint8"
+w_quant_type = "uint8"
 dump_quant_error = false
 dump_quant_error_symmetric_for_signed = false
 quant_scheme = ""
@@ -125,115 +286,4 @@ export_quant_scheme = false
 export_weight_range_by_channel = false
 ```
 
-## 运行GUI程序
-
-```shell
-python app.py
-```
-
-## onnx2kmodel使用说明
-该工具可将onnx模型转化为二哈识图2专用的kmodel模型格式。而onnx模型可由yolov8n, yolo11n模型转化而来。<br/>
-以下为两个训练yolo模型，转化为onnx模型最终生成二哈识图安装包的过程。<br/>
-使用者可任选其一<br/>
-当使用方法2自行训练yolo模型时，imgsz参数可选320或者640两种规格。
-
-### 1. 基于Mind+制作二哈安装包
-此方法使用[Mind+ V2](https://mindplus.cc/download.html)来训练yolo模型，并且在Mind+中直接转化为onnx模型<br/>
-可访问[二哈识图2 Mind+训练模型并离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.2%20Mind%2B%E6%97%A0%E4%BB%A3%E7%A0%81%E6%96%B9%E5%BC%8F%E8%AE%AD%E7%BB%83%E5%B9%B6%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%9E%8B(%E6%9C%AC%E5%9C%B0))以查看详细说明。
-
-使用该方式训练模型的用户，执行下一步前需要确认有两个压缩包：
-1. 从Mind+导出含有onnx模型的.zip压缩包
-2. 数据集的.zip压缩包
-
-#### 启动onnx2kmodel，进行onnx模型到kmodel模型转换
-
-简要流程如下：
-* 该项目顶层文件执行python app.py
-* 模式选择 选择MindPlus
-* 选择Mindplus导出的模型包
-* 选择MindPlus导出的数据集包
-* 选择自己的图标
-* 输入多语言的应用名称（必填）
-* 输入多语言的title名称（必填）
-* 设置合理的默认输出阈值
-* 点击保存配置，可以作为再次打开gui工具的默认配置（可选）
-* 点击转换&打包按钮，等待几分钟（依据你的电脑性能）后，app.py的同级目录会生成一个zip格式的安装包（注意不要更改这个安装包的名字）
-
-###  2. 基于自定义数据制作二哈安装包
-
-此方法需要用户自行准备yolo格式的数据集<br/>
-假设使用此功能的用户比较了解yolo数据集，这里不对数据集的格式做更多解释
-可访问[二哈识图2 Python代码训练模型离线部署章节](https://wiki.dfrobot.com.cn/_SKU_SEN0638_Gravity_HUSKYLENS_2_AI_Camera_Vision_Sensor#8.3%20Python%20%E4%BB%A3%E7%A0%81%E8%AE%AD%E7%BB%83%E6%A8%A1%E5%9E%8B%E5%B9%B6%E9%83%A8%E7%BD%B2(%E6%9C%AC%E5%9C%B0))。<br/>
-使用我们提供的示例数据集，并参考该链接教程进行yolo模型训练以及onnx模型转化。
-
-使用该方式训练模型的用户，执行下一步前需要确认有两个文件：
-1. onnx模型
-2. yolo数据集文件夹
-
-
-##### 制作onnx转换kmodel模型所需文件夹
-
-获得onnx模型后，用户需在app.py的同级目录下，创建如下文件结构。
-其中：
-- **best.onnx**：该文件是上一步由yolo模型转化生成的onnx模型
-- **images**：该文件夹包含了原始数据集
-- **data.yaml**：该文件可在[examples_yaml](/examples_yaml/)文件夹中找到示例。其中的names标签，需要根据自己模型的规格进行修改。其他参数默认不动
-
-检测和分割模型
-```shell
-.
-└── user_dir
-    ├── best.onnx
-    ├── data.yaml
-    └── images
-        └── train
-            ├── capture_f845db40.png
-            ├── capture_fc0e6b54.png
-            ├── capture_fc577b9b.png
-            ├── capture_fe2a84a1.png
-            └── ......
-
-
-```
-
-分类模型
-
-```shell
-.
-└── user_dir
-    ├── best.onnx
-    ├── data.yaml
-    └── images
-        └── train
-            └── cls1    		
-                ├── capture_f845db40.png
-                ├── capture_fc0e6b54.png
-                └── ......
-            └── cls2
-                ├── capture_fc577b9b.png
-                ├── capture_fe2a84a1.png
-                └── ......
-            └── ...
-```
-
-#### 启动onnx2kmodel，进行onnx模型到kmodel模型转换
-
-简要流程如下：
-* 该项目顶层文件夹，开启终端执行python app.py
-* 模式选择 选择自定义
-* 用户自定义目录，选择前一步整理好的user_dir文件夹
-* 选择自己的图标
-* 输入多语言的应用名称（必填）
-* 输入多语言的title名称（必填）
-* 设置合理的默认输出阈值
-* 点击保存配置，可以作为再次打开gui工具的默认配置（可选）
-* 点击转换&打包按钮，等待几分钟（依据你的电脑性能）后，app.py的同级目录会生成一个zip格式的安装包（注意不要更改这个安装包的名字）
-
-## 二哈2上安装应用
-
-* 将zip安装包拷贝到二哈MTP设备的 Huskylens\storage\installation_package  目录
-* 打开二哈 模型安装（Model Installation），选择本地安装（Local Installation），应用就安装好了，回到主界面可以查看
-
-## 遗留问题
-
-* 点击转换时，GUI线程会卡住，转换完成后才可继续操作
+## 

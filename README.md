@@ -1,124 +1,283 @@
-# ONNX to HuskyLens 2 Installation Package GUI Tool
+# HUSKYLENS 2 Model Installation Package Generator
 
-Convert ONNX models into kmodel format and package them into HuskyLens 2 ZIP installation packages.
+Convert supported Ultralytics ONNX models to K230 `.kmodel` files and generate ZIP installation packages that can be installed locally on HUSKYLENS 2.
 
-* [中文版本](./README_CN.md)
+[简体中文](./README_CN.md)
 
 ## Features
 
--  **Supports YOLOv8n, YOLO11n, object detection, semantic segmentation, and object classification models(imgsz 320 or 640)**
--  **Supports Python 3.10 and above** 
--  **Runs on Windows 10, Linux** 
--  **Quantization using training dataset images** 
--  **Uses uint8 quantization** 
+- Supports `YOLOv8n` and `YOLO11n`.
+- Supports detection, classification, and segmentation tasks.
+- Supports `224 × 224`, `320 × 320`, and `640 × 640` input sizes.
+- Supports YOLO and MindPlus data sources, with YOLO selected by default.
+- Automatically validates and organizes ONNX models, dataset configurations, training images, and labels.
+- Selects balanced calibration images from the training set and performs UINT8 quantization with nncase.
+- Supports UI and app names in English, Simplified Chinese, Traditional Chinese, French, Korean, Spanish, Brazilian Portuguese, and Japanese.
+- Runs conversion and packaging in a separate process while displaying the current stage in real time.
+- Lets users choose the installation package output directory and safely manage temporary files.
 
-## Installation
+Note: Do not modify a generated ZIP package in any way. Changing either the files inside the ZIP or the ZIP filename will prevent HUSKYLENS 2 from recognizing the installation package.
 
-### Clone the Repository
+## Requirements
 
-```
-git clone https://github.com/DFRobot/onnx2kmodel
-```
+### Windows
 
-### Install Dependencies
+- Python 3.10 or later. Development and testing use Python 3.12.
+- [.NET SDK 7.0.410](https://dotnet.microsoft.com/en-us/download/dotnet/7.0).
 
-#### windows
+Install the Python dependencies:
 
-Download and install .NET 7.0:
-
-https://downloadcd.dfrobot.com.cn/HUSKYLENS/dotnet-sdk-7.0.410-win-x64.exe
-
-Ensure Python 3.10 or higher is installed, then run:
-
-```shell
-pip install  -r requirements.txt
-pip install  nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
+```powershell
+pip install -r requirements.txt
+pip install nncase_kpu-2.10.0-py2.py3-none-win_amd64.whl
 ```
 
-#### Linux
+The distributed EXE includes its Python runtime, so end users do not need to install Python separately. The required .NET environment must still be installed.
 
-安装 dotnet7.0
+### Linux
 
-Install .NET 7.0 (tested on Ubuntu 22.04):
+The GUI and nncase dependencies must be validated by the user. On Ubuntu, install .NET 7 and the Python dependencies with:
 
-```shell
+```bash
 sudo apt update
 sudo apt install -y dotnet-sdk-7.0
+pip install -r requirements.txt
+pip install nncase-kpu
 ```
 
-Install Python dependencies:
+macOS has not been validated.
 
-```shell
-pip install  -r requirements.txt
-pip install  nncase-kpu
+## Start
+
+Run from source:
+
+```powershell
+python app.py
 ```
 
-#### Mac
+Startup defaults:
 
+- The UI starts in English and can be changed at the top of the window.
+- The default data source is YOLO.
+- The default threshold is `0.60`, with a step of `0.02`.
+
+## Workflow
+
+1. Select the UI language.
+2. Select the installation package output directory.
+3. Select the data source (YOLO by default).
+4. For YOLO, select the dataset folder and ONNX model separately. For MindPlus, select the model package (.zip) and dataset package (.zip).
+5. Review the automatically detected model information and manually select any field that cannot be identified reliably.
+6. Enter an app name. Press Enter to add a line break.
+7. Add other language names, replace the icon, or adjust the default threshold as needed.
+8. When the status area displays “Preparation complete. Ready to start,” click **Start**.
+9. Review the installation package path in the completion dialog. After the dialog is closed, the temporary cache from this run is cleared automatically.
+
+## Data Sources
+
+### YOLO: Detection and Segmentation
+
+YOLO mode requires a dataset folder and an `.onnx` model to be selected separately. The root of the dataset folder must contain:
+
+- One `.yaml` or `.yml` dataset configuration file.
+
+The configuration must contain non-empty `train` and `names` fields. The `path` field is optional. When `path` is omitted, the selected dataset folder (the YAML root) is used as the base for resolving `train`. When `path` is present, the training image directory is resolved from `path + train`. The program then locates the label directory by replacing the last `images` component in the training path with `labels`.
+
+Example dataset folder:
+
+```text
+dataset_dir
+├── dataset.yaml
+└── dataset
+    ├── images
+    │   └── train
+    │       ├── image_001.jpg
+    │       └── ...
+    └── labels
+        └── train
+            ├── image_001.txt
+            └── ...
 ```
-Not yet tested.
+
+Example `data.yaml`:
+
+```yaml
+path: ./dataset      # Optional
+train: images/train
+names:
+  0: person
+  1: car
 ```
 
+If multiple `.yaml` files exist at the root of the dataset folder, the program requires all but one correct configuration file to be removed.
 
+### YOLO: Classification
+
+A YAML file is optional for classification. If the ONNX model can be reliably identified as a classification model, the standard directory structure can be used directly:
+
+```text
+dataset_dir
+├── train
+│   ├── class_1
+│   │   ├── image_001.jpg
+│   │   └── ...
+│   └── class_2
+│       ├── image_002.jpg
+│       └── ...
+└── val                       # Optional; not used during conversion
+    └── ...
+```
+
+The program sorts class directory names to generate `data.yaml`. If the ONNX classification output count can be confirmed, it is checked against the number of classes in the dataset, and preparation stops when the counts differ. Class names and order are not compared between ONNX metadata and the dataset; names come from the dataset YAML or class directories. If the ONNX class count cannot be confirmed, preparation may continue, but the user is prompted to verify that the dataset classes match those used during training.
+
+If the classification folder contains a valid YAML file, its class order and training path take precedence. When `path` is omitted, `train` is resolved directly from the dataset folder.
+
+### MindPlus
+
+Select both:
+
+1. The model package (.zip) exported by MindPlus.
+2. The dataset package (.zip) exported by MindPlus.
+
+## ONNX Model Information Detection
+
+The YOLO data source displays model version, task type, and input size controls:
+
+- Model Version: Unknown, YOLOv8n, YOLO11n.
+- Task Type: Unknown, Detection, Classification, Segmentation.
+- Input Size: Unknown, 224 × 224, 320 × 320, 640 × 640.
+
+The program uses a conservative detection strategy:
+
+1. It first reads ONNX metadata such as `description`, `model_name`, `task`, `head`, `imgsz`, and `input_shape`.
+2. If the size is absent from the metadata, it reads the ONNX input tensor.
+3. If the task type is absent from the metadata, it combines the ONNX output structure with limited evidence from the dataset structure and labels.
+4. Conflicting or insufficient evidence leaves the field as Unknown instead of guessing.
+5. Automatically confirmed fields are locked; fields that cannot be confirmed remain available for manual selection.
+6. Preparation stops if the model is explicitly identified as an unsupported version such as YOLOv8s or YOLO11s, or if its input size is unsupported.
+
+## Quantization Calibration Image Selection
+
+Calibration images are selected from the training set after the user clicks **Start**:
+
+- Up to 500 classes: cover all classes, select at most 500 images in total, and allocate up to 10 images per class as evenly as possible.
+- More than 500 classes: prioritize one image per class; the total may exceed 500 to cover every class.
+- Images are selected randomly to maintain substantial variation among samples.
+- One multi-class image can cover multiple classes.
+
+If no usable image can be found for a class, the program displays the specific class and path instead of proceeding directly to model conversion.
+
+## App Name, Preview, and Icon
+
+- When the app name is empty, the preview displays the `App Name` placeholder.
+- Manual line breaks: press Enter while entering the app name to insert a line-break marker.
+- Automatic wrapping: approximately 12 English letters or 6 Chinese characters per line, with at most two lines displayed.
+- Users can add app names in any of the eight supported languages. Languages without a separate value use the current default name.
+- A square icon with a transparent background and white line art is recommended for visual consistency with native HUSKYLENS 2 icons, although color icons are also supported. The icon size is 60 × 60 pixels; images in other sizes are automatically resized to 60 × 60.
+
+## Output and Cache
+
+The final ZIP is written to the selected output directory using the following format:
+
+```text
+AppName-ModelVersion-TaskType-InputSize.Checksum.zip
+```
+
+Example:
+
+```text
+Cat-YOLO11n-cls-320.a1b2.zip
+```
+
+The temporary directory is located at:
+
+```text
+Selected output directory/HUSKYLENS 2 Package Generator Temp Files
+├── model_input
+├── model_output
+└── dump
+```
+
+- Calibration images selected for quantization can be viewed in `model_input`.
+- Changing the output directory removes the temporary files from the previous output directory.
+- Preparing a new data source rebuilds `model_input`.
+- `model_output` and `dump` are rebuilt before every conversion.
+- After the completion dialog is closed, the temporary cache is cleared automatically without prompting; the final ZIP is preserved.
+
+## Install on HUSKYLENS 2
+
+1. Copy the generated ZIP to the following path on the USB drive exposed by HUSKYLENS 2:
+
+   ```text
+   Huskylens\storage\installation_package
+   ```
+
+2. Open **Model Installation** on HUSKYLENS 2.
+3. Select **Local Installation** to complete the installation.
 
 ## Configuration Files
 
-#### Application Configuration -- app_conf.toml
-
-Click “Save Config” in the GUI to automatically update this file.
-It will be used as the default configuration next time you open the UI.
+### Application Configuration: app_conf.toml
 
 ```toml
 [comm]
-mode = "MindPlus"    #use models/datasets exported from MindPlus, mode="User"  for user directory
-icon_file = ""       #Required PNG icon with transparent background for packaging
-app_name_EN = "Cell\\nRecognition"  # App name (English), "\n" for line break
-app_name_zh_CN = "细胞识别"			  #App name (Simplified Chinese)
-app_name_zh_TW = "細胞識別"			  #App name (Traditional Chinese)
-title_name_EN = "Cell Recognition"  #Title shown in HuskyLens (English)
-title_name_zh_CN = "细胞识别"         #Title shown in HuskyLens (Simplified Chinese)
-title_name_zh_TW = "細胞識別"         #Title shown in HuskyLens (Traditional Chinese)
-det_threshold = 0.6                 #Default detection threshold (0–1)
+mode = "User"               # Data source: User means YOLO; MindPlus means MindPlus
+icon_file = ""              # App icon path; bundled icon.png is used by default at startup
+det_threshold = 0.6          # Default threshold, displayed as 0.60 in the UI
+app_name_en = ""            # English app name; \\n represents a line break
+app_name_zh-CN = ""         # Simplified Chinese app name
+app_name_zh-TW = ""         # Traditional Chinese app name
+app_name_fr = ""            # French app name
+app_name_ko = ""            # Korean app name
+app_name_es = ""            # Spanish app name
+app_name_pt-BR = ""         # Brazilian Portuguese app name
+app_name_ja = ""            # Japanese app name
+title_name_en = ""          # English title
+title_name_zh-CN = ""       # Simplified Chinese title
+title_name_zh-TW = ""       # Traditional Chinese title
+title_name_fr = ""          # French title
+title_name_ko = ""          # Korean title
+title_name_es = ""          # Spanish title
+title_name_pt-BR = ""       # Brazilian Portuguese title
+title_name_ja = ""          # Japanese title
+user_added_langs = []        # Additional app-name languages selected by the user
 
 [mindplus_options]
-dataset_zip = ""   # Dataset ZIP exported from MindPlus
-model_zip = ""     # Model ZIP exported from MindPlus
+dataset_zip = ""            # MindPlus dataset package (.zip)
+model_zip = ""              # MindPlus model package (.zip)
 
 [user_options]
-user_dir = ""   # Directory for custom files in User mode
-
+user_dir = ""               # YOLO dataset folder
+onnx_file = ""              # YOLO ONNX model file
 ```
 
+### Model Configuration: kmodel_conf.toml
 
-
-#### Model Configuration  kmodel_conf.toml
-
-For advanced users familiar with nncase.
-Beginners can use the default settings without modification.
+`kmodel_conf.toml` contains the nncase compilation and UINT8 quantization settings. Keeping the default values is recommended for most users. During conversion, the program automatically sets the actual input size from the selected ONNX model, so `input_shape` in this file is only a default template value.
 
 ```toml
 [compile_options]
-target = "k230"  # "cpu"
+target = "k230"             # Compilation target
 dump_ir = false
 dump_asm = false
 dump_dir = "./dump"
 input_file = ""
 preprocess = true
-input_type = "uint8"  # "uint8", "float32"
-input_shape = [1, 3, 320, 320]
+input_type = "uint8"
+input_shape = [1, 3, 640, 640]
 input_range = [0, 1]
-input_layout = "NCHW"  # "NHWC"
+input_layout = "NCHW"
 swapRB = false
 mean = [0, 0, 0]
 std = [1, 1, 1]
 letterbox_value = 0
-output_layout = "NCHW"  # "NHWC"
+output_layout = "NCHW"
 
 [ptq_options]
-calibrate_method = "NoClip"  # "Kld", "NoClip"
+calibrate_method = "NoClip"
 finetune_weights_method = "NoFineTuneWeights"
-quant_type = "uint8"  # "float32", "int8", "int16"
-w_quant_type = "uint8"  # "float32", "int8", "int16"
+quant_type = "uint8"
+w_quant_type = "uint8"
 dump_quant_error = false
 dump_quant_error_symmetric_for_signed = false
 quant_scheme = ""
@@ -126,113 +285,3 @@ quant_scheme_strict_mode = false
 export_quant_scheme = false
 export_weight_range_by_channel = false
 ```
-
-## Running the GUI
-
-```shell
-python app.py
-```
-
-## Onnx2kmodel Usage Instructions
-This tool can convert ONNX models into the kmodel format specifically used by HUSKYLENS 2. And ONNX models can be derived from YOLOv8N and YOLO11N models.
-Here are two methods of training two YOLO models, converting them into ONNX models and ultimately generating the HUSKYLENS 2 installation package.
-Users can choose either one at will.
-When using method 2 train your own yolo model, the imgsz parameter can be 320 or 640
-
-### 1. Create the installation package for HUSKYLENS 2 based on Mind+
-
-This method use [Mind+ V2](https://mindplus.cc/en/) to train the yolo mode, and convert the yolo model into onnx model in Mind+ V2. 
-For the detail description, please visit  [No-Code Model Training and Deployment-Mind+ Local](https://wiki.dfrobot.com/sen0638/docs/22604#1.2%20No-Code%20Model%20Training%20and%20Deployment-Mind%2B%20Local) in HUSKYLENS 2 wiki.
-
-Users who train the model using this method need to confirm the presence of two compressed files before proceeding to the next step:
-1. A.zip compressed file exported from Mind+ containing the ONNX model
-2. A.zip compressed file of the dataset
-
-#### Start the "onnx2kmodel" program to convert the ONNX model to a Kmodel model.
-
-The general process is as follows:
-* Execute the python app.py file at the project's top level.
-* Select the mode - choose MindPlus.
-* Select the model package exported by MindPlus.
-* Select the dataset package exported by MindPlus.
-* Select your own icon.
-* Enter the application name in multiple languages (required).
-* Enter the title name in multiple languages (required).
-* Set a reasonable default output threshold.
-* Click "Save Configuration" to set it as the default configuration for opening the GUI tool again (optional).
-* Click the "Convert & Package" button. After a few minutes (depending on your computer's performance), a zip format installation package will be generated in the same directory as app.py (note: do not change the name of this installation package).
-
-###  2. Create HUSKYLENS 2 installation package based on custom data
-
-This method need users to prepare their own yolo dataset. And this method is for the experienced users familiar with YOLO dataset structure. No further explanation will be given regarding the format of the dataset.<br/>
-You can visit [Code-Trained Model Deployment to HUSKYLENS 2](https://wiki.dfrobot.com/sen0638/docs/22604#1.3%20Code-Trained%20Model%20Deployment%20to%20HUSKYLENS%202) on HUSKYLENS 2 wiki. Use the sample dataset provided on the wiki and refer to the tutorial link for training the YOLO model and converting it to an ONNX model.
-
-Users who train the model using this method need to confirm the existence of two files before proceeding to the next step:
-1. ONNX model
-2. YOLO Dataset folder
-
-#### Make a folder required for converting the kmodel model to ONNX format
-
-After obtaining the ONNX model, users need to create the following file structure in the same directory as app.py.
-Here:
-- **best.onnx**: This model is the model generated by converting the YOLO model in the previous step
-- **images**: This folder contains the original dataset
-- **data.yaml**: The example of this file can be find in folder [examples_yaml](/examples_yaml/). The "names" tag needs to be modified according to the specifications of your model. Other parameters should remain unchanged by default.
-
-Detection and Segmentation Model
-```shell
-.
-└── user_dir
-    ├── best.onnx
-    ├── data.yaml
-    └── images
-        └── train
-            ├── capture_f845db40.png
-            ├── capture_fc0e6b54.png
-            ├── capture_fc577b9b.png
-            ├── capture_fe2a84a1.png
-            └── ......
-
-```
-
-Classification Model
-```shell
-.
-└── user_dir
-    ├── best.onnx
-    ├── data.yaml
-    └── images
-        └── train
-            └── cls1    		
-                ├── capture_f845db40.png
-                ├── capture_fc0e6b54.png
-                └── ......
-            └── cls2
-                ├── capture_fc577b9b.png
-                ├── capture_fe2a84a1.png
-                └── ......
-            └── ...
-```
-
-#### Run onnx2kmodel, perform onnx to kmodel transformation
-
-The general process is as follows:
-* On the top-level folder of this project. Open the terminal and execute "python app.py"
-* Mode selection: Choose Custom
-* User-defined directory, select the previously organized "user_dir" folder
-* Choose your own icon
-* Input the application names in multiple languages (required)
-* Input the title names in multiple languages (required)
-* Set a reasonable default output threshold
-* Click "Save Configuration" to set it as the default configuration for opening the GUI tool again (optional)
-* Click the "Convert & Package" button. After a few minutes (depending on your computer performance), a zip format installation package will be generated in the same directory as app.py (note: do not change the name of this installation package)
-
-## HuskyLens V2 Installation Package
-
-* Copy the generated ZIP package to:Huskylens\storage\installation_package on the HuskyLens MTP device.
-* On HuskyLens, open Model Installation → Local Installation.The app will install automatically.
-* Return to the main menu to find and launch your new app.
-
-## Known Issues
-
-* The GUI becomes unresponsive during model conversion (conversion runs on the main thread).
