@@ -4,6 +4,8 @@
 
 [English](./README.md) 
 
+关于工具的详细使用教程，请参考：[HUSKYLENS 2 模型安装包生成器使用教程](https://wiki.dfrobot.com/sen0638/docs/22604)。
+
 ## 功能概览
 
 - 支持 `YOLOv8n`、`YOLO11n`。

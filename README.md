@@ -4,6 +4,8 @@ Convert supported Ultralytics ONNX models to K230 `.kmodel` files and generate Z
 
 [简体中文](./README_CN.md)
 
+For detailed instructions, see the [HUSKYLENS 2 Model Installation Package Generator Tutorial](https://wiki.dfrobot.com/sen0638/docs/22604).
+
 ## Features
 
 - Supports `YOLOv8n` and `YOLO11n`.
