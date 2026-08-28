@@ -1,8 +1,0 @@
-aitools_id: ai-tools-classification
-aitools_version: 0.0.1
-description: cat-classification
-base_model: yolov8n-cls
-input_shape: [320, 320]
-labels:
-  0: Ragdoll Cat
-  1: Siamese Cat

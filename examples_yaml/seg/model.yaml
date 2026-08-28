@@ -1,7 +1,0 @@
-aitools_id: ai-tools-segmentation
-aitools_version: 0.0.1
-description: flower segmentation
-base_model: yolov8n-seg
-input_shape: [640, 640]
-labels:
-  0: flower
