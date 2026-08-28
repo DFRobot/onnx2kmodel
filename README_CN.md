@@ -87,23 +87,27 @@ YOLO 模式需要分别选择一个数据集文件夹和一个 `.onnx` 模型文
 
 ```text
 dataset_dir
-├── dataset.yaml
-└── dataset
-    ├── images
-    │   └── train
-    │       ├── image_001.jpg
-    │       └── ...
-    └── labels
-        └── train
-            ├── image_001.txt
-            └── ...
+├── data.yaml
+├── images
+│   ├── train
+│   │   ├── image_001.jpg
+│   │   └── ...
+│   └── val                     # 可选，转换不读取
+│       └── ...
+└── labels
+    ├── train
+    │   ├── image_001.txt
+    │   └── ...
+    └── val                     # 可选，转换不读取
+        └── ...
 ```
 
 data.yaml示例：
 
 ```yaml
-path: ./dataset      # 可选
-train: images/train
+path: ./             # 可选
+train: ./images/train
+val: ./images/val    # 可选，转换不读取
 names:
   0: person
   1: car

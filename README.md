@@ -87,23 +87,27 @@ Example dataset folder:
 
 ```text
 dataset_dir
-├── dataset.yaml
-└── dataset
-    ├── images
-    │   └── train
-    │       ├── image_001.jpg
-    │       └── ...
-    └── labels
-        └── train
-            ├── image_001.txt
-            └── ...
+├── data.yaml
+├── images
+│   ├── train
+│   │   ├── image_001.jpg
+│   │   └── ...
+│   └── val                     # Optional; not used during conversion
+│       └── ...
+└── labels
+    ├── train
+    │   ├── image_001.txt
+    │   └── ...
+    └── val                     # Optional; not used during conversion
+        └── ...
 ```
 
 Example `data.yaml`:
 
 ```yaml
-path: ./dataset      # Optional
-train: images/train
+path: ./             # Optional
+train: ./images/train
+val: ./images/val    # Optional; not used during conversion
 names:
   0: person
   1: car
